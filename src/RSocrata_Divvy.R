@@ -6,9 +6,6 @@
 library(pacman)
 p_load(flexdashboard)
 
-library(flexdashboard)
-
-
 
 
 

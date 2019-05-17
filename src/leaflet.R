@@ -1,27 +1,66 @@
+##################################################
+## Project: Divvy_Flex
+## Script purpose: Test out leaflet plots using Divvy data
+## Date: May 15, 2019
+## Author: Zack Larsen
+##################################################
+
+
 
 # https://allthisblog.wordpress.com/2016/10/12/r-311-with-leaflet-tutorial/
 
-library(leaflet)
-library(dplyr)
-library(ggvis)
 
-# Shows a basic base map
-my_map <- leaflet()%>%
-  addTiles()
-my_map  
+library(pacman)
+p_load(leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite)
 
+conflict_prefer("filter", "dplyr")
 
 getwd()
-setwd('/Users/zacklarsen/Datasets/')
-
-violations <- read.csv('Red_Light_Camera_Violations.csv',nrows = 10000)
+setwd('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex')
 
 
-my_map <- leaflet()%>%
-  addTiles()%>%
-  addMarkers(lat = 41.80772701677172,lng = -87.74322936566276,
+
+
+
+
+
+# Data feed ---------------------------------------------------------------
+
+stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
+stations$executionTime
+stations$stationBeanList %>% 
+  filter(
+    #id == 2,
+    is_renting == TRUE,
+    #availableDocks < 5,
+    stAddress1 %like% 'Damen'
+    )
+
+
+
+
+my_map <- leaflet() %>%
+  addTiles() %>%
+  addMarkers(lat = stations$stationBeanList$latitude, 
+             lng = stations$stationBeanList$longitude,
+             popup = stations$stationBeanList$stationName)
+my_map 
+
+
+
+
+
+
+
+
+my_map <- leaflet() %>%
+  addTiles() %>%
+  addMarkers(lat = 41.80772701677172, 
+             lng = -87.74322936566276,
              popup = 'Random red light')
 my_map 
+
+
 
 
 locationDF <- data.frame(violations[,c("LATITUDE","LONGITUDE")])
