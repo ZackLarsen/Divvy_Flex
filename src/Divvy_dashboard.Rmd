@@ -4,35 +4,283 @@ author: "Zack Larsen"
 date: "May 15, 2019"
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
-    vertical_layout: fill
+    social: [ "twitter", "facebook", "github", "menu" ]
+    source: embed
 ---
 
 ```{r setup, include=FALSE}
-library(flexdashboard)
+library(pacman)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue)
+conflict_prefer("filter", "dplyr")
+
+here::here()
+
+stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
 ```
 
-Column {data-width=650}
------------------------------------------------------------------------
 
-### Chart A
+Landing Page
+=========================================
+
+Column 
+-------------------------------------
+
+### Divvy Stations, plotted using leaflet. This map can be zoomed in on interactively and the station names will be displayed upon clicking the icon.
 
 ```{r}
 
+my_map <- leaflet() %>%
+  addTiles() %>%
+  addMarkers(lat = stations$stationBeanList$latitude, 
+             lng = stations$stationBeanList$longitude,
+             popup = stations$stationBeanList$stationName,
+             label = stations$stationBeanList$id)
+my_map
+
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+***
 
-### Chart B
+https://rstudio.github.io/leaflet/
+
+- Interactive panning/zooming
+
+- Notice the icons, when clicked, display the station name
+
+
+Column {.tabset}
+-------------------------------------
+   
+### Empty Stations
 
 ```{r}
 
+stations$stationBeanList %>% 
+  select(id, stationName, availableDocks, availableBikes) %>% 
+  arrange(-availableDocks) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+
+```   
+
+
+### Full Stations
+    
+```{r}
+
+stations$stationBeanList %>% 
+  select(id, stationName, availableDocks, availableBikes) %>% 
+  arrange(availableDocks) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
 ```
 
-### Chart C
+
+### Largest Stations
+    
+```{r}
+
+stations$stationBeanList %>% 
+  select(id, stationName, totalDocks) %>% 
+  arrange(-totalDocks) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Smallest Stations
+    
+```{r}
+
+stations$stationBeanList %>% 
+  select(id, stationName, totalDocks) %>% 
+  arrange(totalDocks) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+Story Board {.storyboard}
+=========================================
+
+### Time Stamp
 
 ```{r}
 
+stations$executionTime
+
 ```
 
+
+### Totals
+
+```{r}
+
+sum(stations$stationBeanList$availableDocks)
+sum(stations$stationBeanList$totalDocks)
+
+```
+
+
+### Damen Stations
+
+```{r}
+
+stations$stationBeanList %>%
+  filter(
+    #id == 2,
+    is_renting == TRUE,
+    #availableDocks < 5,
+    stAddress1 %like% 'Damen'
+    ) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Popup Labels
+
+```{r}
+
+content_df <- stations$stationBeanList %>%
+  mutate(
+    content = paste(
+      sep = "<br/>",
+      glue("<b><a>{stationName}</a></b>"),
+      #stAddress1,
+      location,
+      city,
+      postalCode
+      )
+    )
+
+leaflet(content_df) %>%
+  addTiles() %>%
+  addPopups(
+    content_df$latitude,
+    content_df$longitude,
+    content_df$content,
+    options = popupOptions(closeButton = FALSE)
+  )
+
+```
+
+
+### Clusters
+
+```{r}
+
+leaflet() %>%
+  addTiles() %>%
+  addMarkers(
+    lat = stations$stationBeanList$latitude, 
+    lng = stations$stationBeanList$longitude,
+    popup = stations$stationBeanList$stationName,
+    label = stations$stationBeanList$id,
+    clusterOptions = markerClusterOptions()
+  )
+
+```
+
+
+### Circles
+
+```{r}
+
+leaflet(stations$stationBeanList) %>%
+  addTiles() %>%
+  addCircleMarkers()
+
+```
+
+
+### Custom Circles
+
+```{r}
+
+# Create a palette that maps factor levels to colors
+pal <- colorFactor(c("red", "blue"), domain = c(TRUE, FALSE))
+
+leaflet(stations$stationBeanList) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    radius = ~ifelse(is_renting == TRUE, 10, 5),
+    color = ~pal(is_renting),
+    stroke = FALSE, fillOpacity = 0.5
+  ) %>% 
+  addLegend("topright", pal = pal, values = ~is_renting,
+    title = "Renting Currently Or Not",
+    #labFormat = labelFormat(prefix = "$"),
+    opacity = 1
+  )
+
+```
+
+
+### Custom Icons
+
+```{r}
+
+# https://rstudio.github.io/leaflet/markers.html
+
+greenLeafIcon <- makeIcon(
+  #iconUrl = "http://leafletjs.com/examples/custom-icons/leaf-green.png",
+  iconUrl = "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/Divvy-icon.png",
+  iconWidth = 35, iconHeight = 35,
+  iconAnchorX = 0, iconAnchorY = 10
+  
+  #,
+  #shadowUrl = "http://leafletjs.com/examples/custom-icons/leaf-shadow.png",
+  #shadowWidth = 50, shadowHeight = 64,
+  #shadowAnchorX = 4, shadowAnchorY = 62
+)
+
+leaflet(stations$stationBeanList) %>%
+  addTiles() %>%
+  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+
+```
+
+
+### Custom Tiles Toner
+
+```{r}
+
+# https://leaflet-extras.github.io/leaflet-providers/preview/index.html
+
+leaflet(stations$stationBeanList) %>%
+  addProviderTiles(providers$Stamen.Toner) %>%
+  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+
+```
+
+
+### Custom Tiles NASA
+
+```{r}
+
+leaflet(stations$stationBeanList) %>%
+  addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012) %>%
+  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+
+```
+
+
+### Custom Tiles Watercolor
+
+```{r}
+
+leaflet(stations$stationBeanList) %>%
+  addProviderTiles(providers$Stamen.Watercolor) %>%
+  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+
+```
