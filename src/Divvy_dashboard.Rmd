@@ -10,7 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(pacman)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools)
 conflict_prefer("filter", "dplyr")
 
 here::here()
@@ -19,7 +19,7 @@ stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
 ```
 
 
-Landing Page
+Landing Page - Stations
 =========================================
 
 Column 
@@ -27,7 +27,7 @@ Column
 
 ### Divvy Stations, plotted using leaflet. This map can be zoomed in on interactively and the station names will be displayed upon clicking the icon.
 
-```{r}
+```{r, cache=TRUE}
 
 my_map <- leaflet() %>%
   addTiles() %>%
@@ -53,7 +53,7 @@ Column {.tabset}
    
 ### Empty Stations
 
-```{r}
+```{r, cache=TRUE}
 
 stations$stationBeanList %>% 
   select(id, stationName, availableDocks, availableBikes) %>% 
@@ -62,13 +62,12 @@ stations$stationBeanList %>%
   kable() %>% 
   kable_styling()
 
-
 ```   
 
 
 ### Full Stations
     
-```{r}
+```{r, cache=TRUE}
 
 stations$stationBeanList %>% 
   select(id, stationName, availableDocks, availableBikes) %>% 
@@ -82,7 +81,7 @@ stations$stationBeanList %>%
 
 ### Largest Stations
     
-```{r}
+```{r, cache=TRUE}
 
 stations$stationBeanList %>% 
   select(id, stationName, totalDocks) %>% 
@@ -96,7 +95,7 @@ stations$stationBeanList %>%
 
 ### Smallest Stations
     
-```{r}
+```{r, cache=TRUE}
 
 stations$stationBeanList %>% 
   select(id, stationName, totalDocks) %>% 
@@ -108,31 +107,13 @@ stations$stationBeanList %>%
 ```
 
 
-Story Board {.storyboard}
+Station Features {.storyboard}
 =========================================
-
-### Time Stamp
-
-```{r}
-
-stations$executionTime
-
-```
-
-
-### Totals
-
-```{r}
-
-sum(stations$stationBeanList$availableDocks)
-sum(stations$stationBeanList$totalDocks)
-
-```
 
 
 ### Damen Stations
 
-```{r}
+```{r, cache=TRUE}
 
 stations$stationBeanList %>%
   filter(
@@ -149,7 +130,7 @@ stations$stationBeanList %>%
 
 ### Popup Labels
 
-```{r}
+```{r, cache=TRUE}
 
 content_df <- stations$stationBeanList %>%
   mutate(
@@ -177,7 +158,7 @@ leaflet(content_df) %>%
 
 ### Clusters
 
-```{r}
+```{r, cache=TRUE}
 
 leaflet() %>%
   addTiles() %>%
@@ -194,7 +175,7 @@ leaflet() %>%
 
 ### Circles
 
-```{r}
+```{r, cache=TRUE}
 
 leaflet(stations$stationBeanList) %>%
   addTiles() %>%
@@ -205,7 +186,7 @@ leaflet(stations$stationBeanList) %>%
 
 ### Custom Circles
 
-```{r}
+```{r, cache=TRUE}
 
 # Create a palette that maps factor levels to colors
 pal <- colorFactor(c("red", "blue"), domain = c(TRUE, FALSE))
@@ -228,7 +209,7 @@ leaflet(stations$stationBeanList) %>%
 
 ### Custom Icons
 
-```{r}
+```{r, cache=TRUE}
 
 # https://rstudio.github.io/leaflet/markers.html
 
@@ -253,7 +234,7 @@ leaflet(stations$stationBeanList) %>%
 
 ### Custom Tiles Toner
 
-```{r}
+```{r, cache=TRUE}
 
 # https://leaflet-extras.github.io/leaflet-providers/preview/index.html
 
@@ -266,7 +247,7 @@ leaflet(stations$stationBeanList) %>%
 
 ### Custom Tiles NASA
 
-```{r}
+```{r, cache=TRUE}
 
 leaflet(stations$stationBeanList) %>%
   addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012) %>%
@@ -277,10 +258,264 @@ leaflet(stations$stationBeanList) %>%
 
 ### Custom Tiles Watercolor
 
-```{r}
+```{r, cache=TRUE}
 
 leaflet(stations$stationBeanList) %>%
   addProviderTiles(providers$Stamen.Watercolor) %>%
   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 
 ```
+
+
+### Time Stamp
+
+```{r, cache=TRUE}
+
+stations$executionTime
+
+```
+
+
+### Totals
+
+```{r, cache=TRUE}
+
+sum(stations$stationBeanList$availableDocks)
+sum(stations$stationBeanList$totalDocks)
+
+```
+
+
+Landing Page - Trips
+=========================================
+
+Column 
+-------------------------------------
+
+### Divvy Trips
+
+```{r, cache=TRUE}
+
+divvy_trips <- fread('/Users/zacklarsen/Zack_Master/Datasets/Divvy_Trips.csv', nrows = 10000)
+
+divvy_trips %>% 
+  head(50) %>% 
+  datatable(
+  caption = 'Table 1: Divvy Trips.',
+  options = list(
+    buttons = c('csv'), 
+    paging = TRUE,
+    scrollX = FALSE,
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+      "}")
+  )
+)
+
+```
+
+***
+
+- Trip data provided by Divvy represents trips taken by Divvy users for the past several years
+
+Column {.tabset}
+-------------------------------------
+   
+### Most Popular Departure Stations
+
+```{r, cache=TRUE}
+
+divvy_trips %>% 
+  select(`FROM STATION NAME`) %>% 
+  group_by(`FROM STATION NAME`) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  kable() %>% 
+  kable_styling()
+
+```   
+
+
+### Most Popular Destination Stations
+    
+```{r, cache=TRUE}
+
+divvy_trips %>% 
+  select(`TO STATION NAME`) %>% 
+  group_by(`TO STATION NAME`) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Most Popular Route
+    
+```{r, cache=TRUE}
+
+divvy_trips %>% 
+  group_by(paste(`FROM STATION NAME`, 'to', `TO STATION NAME`)) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  head(20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Greatest Distance Traveled
+    
+```{r, cache=TRUE}
+
+# distm(c(-87.68585, 41.90778), c(-87.67769, 41.90940), fun = distHaversine)
+# 
+# distm(c(-87.68585, 41.90778), c(-87.67769, 41.90940), fun = distGeo)
+# 
+# distCosine(c(-87.68585, 41.90778), c(-87.67769, 41.90940), r=6378137)
+# 
+# distGeo(c(-87.68585, 41.90778), c(-87.67769, 41.90940), a=6378137, f=1/298.257223563)
+
+# my_geo <- function(lat1, lon1, lat2, lon2){
+#   distGeo(c(lat1, lon1), c(lat2, lon2), a=6378137, f=1/298.257223563)
+# }
+
+# https://markhneedham.com/blog/2014/12/04/r-applying-a-function-to-every-row-of-a-data-frame/
+
+divvy_trips %>% 
+  mutate(
+    DISTANCE = by(divvy_trips, 1:nrow(divvy_trips), function(row) { 
+  distGeo(c(row$`FROM LATITUDE`, row$`FROM LONGITUDE`), c(row$`TO LATITUDE`, row$`TO LONGITUDE`), a=6378137, f=1/298.257223563) 
+  }
+    )
+  ) %>% 
+  arrange(-DISTANCE) %>% 
+  select(`TRIP ID`, `FROM STATION NAME`, `TO STATION NAME`, DISTANCE) %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Greatest Average Speed
+    
+```{r, cache=TRUE}
+
+divvy_trips %>% 
+  mutate(
+    DISTANCE = by(divvy_trips, 1:nrow(divvy_trips), function(row) { 
+  distGeo(c(row$`FROM LATITUDE`, row$`FROM LONGITUDE`), c(row$`TO LATITUDE`, row$`TO LONGITUDE`), a=6378137, f=1/298.257223563) 
+  }
+    )
+  ) %>% 
+  mutate(SPEED = (DISTANCE / 1609.344) / (`TRIP DURATION` / 3600)) %>% 
+  arrange(-SPEED) %>% 
+  select(`TRIP ID`, `FROM STATION NAME`, `TO STATION NAME`, SPEED) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  rename(`SPEED (MPH)` = SPEED) %>% 
+  head(20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+Trip Features {.storyboard}
+=========================================
+
+
+### Simple Network Viz
+
+```{r, cache=TRUE}
+
+simpleNetwork(divvy_trips %>% 
+                select(`FROM STATION NAME`, `TO STATION NAME`) %>% 
+                head(1000),
+              opacity = 0.4
+              )
+
+```
+
+
+### Force Network Viz
+
+```{r, cache=TRUE}
+
+# First, we need the frequency of trips from one station to the next
+# source, target, value
+DivvyLinks <- divvy_trips %>% 
+  head(1000) %>% 
+  group_by(paste(`FROM STATION NAME`, 'to', `TO STATION NAME`)) %>% 
+  add_tally() %>% 
+  ungroup() %>% 
+  arrange(-n) %>% 
+  select(`FROM STATION NAME`, `TO STATION NAME`, n) %>% 
+  rename(source = `FROM STATION NAME`, target = `TO STATION NAME`, value = n) %>% 
+  distinct()
+
+# DivvyLinks %>% 
+#   kable() %>% 
+#   kable_styling()
+
+# Secondly, we need the number of trips taken from a given departure station
+# name, group, size
+DivvyNodes <- divvy_trips %>% 
+  head(1000) %>% 
+  group_by(`FROM STATION NAME`) %>% 
+  add_tally() %>% 
+  ungroup() %>% 
+  arrange(-n) %>% 
+  rename(COUNT = n) %>% 
+  select(`FROM STATION NAME`, Wards, COUNT) %>% 
+  rename(name = `FROM STATION NAME`, group = Wards, size = COUNT) %>% 
+  distinct() 
+
+# DivvyNodes %>% 
+#   kable() %>% 
+#   kable_styling()
+
+forceNetwork(Links = DivvyLinks, Nodes = DivvyNodes, Source = "source", Target = "target", Value = "value", NodeID = "name", Group = "group", opacity = 0.4)
+```
+
+
+### Force Network Viz Sample
+
+```{r, cache=TRUE}
+data(MisLinks, MisNodes)
+
+#MisLinks # source, target, value
+
+#MisNodes # name, group, size
+
+
+# http://curleylab.psych.columbia.edu/netviz/netviz2.html#/
+
+# with a simple click action - make the circles bigger when clicked
+MyClickScript <- 
+  'd3.select(this).select("circle")
+.transition().duration(750).attr("r", 40)'
+
+
+browsable(
+  tagList(
+    forceNetwork(Links = MisLinks, Nodes = MisNodes, Source = "source",
+             Target = "target", Value = "value", NodeID = "name",
+             #Nodesize = 'betweenness',
+             Group = "group", opacity = 0.4, 
+             charge = -50, # node repulsion
+             linkDistance = 20,
+             zoom = T,
+             clickAction = MyClickScript),
+    tags$script(
+      '
+      document.body.style.backgroundColor = "#000000"
+      '      
+    )
+  )
+)
+```
+
