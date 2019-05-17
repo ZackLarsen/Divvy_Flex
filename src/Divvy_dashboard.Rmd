@@ -10,7 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(pacman)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio)
 conflict_prefer("filter", "dplyr")
 
 here::here()
@@ -130,28 +130,28 @@ stations$stationBeanList %>%
 
 ### Popup Labels
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
-content_df <- stations$stationBeanList %>%
-  mutate(
-    content = paste(
-      sep = "<br/>",
-      glue("<b><a>{stationName}</a></b>"),
-      #stAddress1,
-      location,
-      city,
-      postalCode
-      )
-    )
-
-leaflet(content_df) %>%
-  addTiles() %>%
-  addPopups(
-    content_df$latitude,
-    content_df$longitude,
-    content_df$content,
-    options = popupOptions(closeButton = FALSE)
-  )
+# content_df <- stations$stationBeanList %>%
+#   mutate(
+#     content = paste(
+#       sep = "<br/>",
+#       glue("<b><a>{stationName}</a></b>"),
+#       #stAddress1,
+#       location,
+#       city,
+#       postalCode
+#       )
+#     )
+# 
+# leaflet(content_df) %>%
+#   addTiles() %>%
+#   addPopups(
+#     content_df$latitude,
+#     content_df$longitude,
+#     content_df$content,
+#     options = popupOptions(closeButton = FALSE)
+#   )
 
 ```
 
@@ -265,6 +265,44 @@ leaflet(stations$stationBeanList) %>%
   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 
 ```
+
+
+### Zip Codes
+
+```{r, cache=TRUE}
+
+# https://data.cityofchicago.org/browse/select_dataset?tags=shapefiles&utf8=%E2%9C%93
+chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
+                                      what = "sp")
+
+factblues <- colorFactor(palette = "Blues", chi_zips$zip)
+
+leaflet(chi_zips) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~factblues(zip),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.7,
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              label = ~zip,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>% 
+  addLegend(pal = factblues, values = ~zip, opacity = 0.7, title = NULL,
+            position = "topright")
+
+```
+
+
+
 
 
 ### Time Stamp
