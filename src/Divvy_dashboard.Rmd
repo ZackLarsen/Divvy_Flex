@@ -29,7 +29,7 @@ Column
 
 ```{r, cache=TRUE}
 
-my_map <- leaflet() %>%
+my_map <- leaflet(stations$stationBeanList) %>%
   addTiles() %>%
   addMarkers(lat = stations$stationBeanList$latitude, 
              lng = stations$stationBeanList$longitude,
@@ -128,30 +128,150 @@ stations$stationBeanList %>%
 ```
 
 
+
+### Zip Codes
+
+```{r, cache=TRUE}
+
+# https://data.cityofchicago.org/browse/select_dataset?tags=shapefiles&utf8=%E2%9C%93
+chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
+                                      what = "sp")
+
+factblues <- colorFactor(palette = "Blues", chi_zips$zip)
+
+leaflet(chi_zips) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~factblues(zip),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.7,
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              label = ~zip,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>% 
+  addLegend(pal = factblues, values = ~zip, opacity = 0.7, title = NULL,
+            position = "topright")
+
+```
+
+
+### Zip Code Mapped To Trips
+
+```{r, cache=TRUE}
+
+chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
+                                      what = "sp")
+
+chi_zips
+
+as.data.frame(chi_zips)
+
+# zip_trip_counts <- divvy_trips %>% 
+#   select(`FROM STATION ID`) %>% 
+#   group_by(`FROM STATION ID`) %>% 
+#   summarise(trip_count = n())
+# 
+# zip_trip_counts
+
+
+
+
+# stations
+
+
+#merge(chi_zips, zip_trip_counts, by.x = "zip", by.y = "Zip Codes")
+
+# Create a continuous palette function
+# blues <- colorNumeric(
+#   palette = "Blues",
+#   domain = chi_zips$trip_count)
+# 
+# leaflet(chi_zips) %>%
+#   addTiles() %>%
+#   addPolygons(fillColor = ~blues(zip),
+#               weight = 2,
+#               opacity = 1,
+#               color = "white",
+#               dashArray = "3",
+#               fillOpacity = 0.7,
+#               highlight = highlightOptions(
+#                 weight = 5,
+#                 color = "#666",
+#                 dashArray = "",
+#                 fillOpacity = 0.7,
+#                 bringToFront = TRUE),
+#               label = ~zip,
+#               labelOptions = labelOptions(
+#                 style = list("font-weight" = "normal", padding = "3px 8px"),
+#                 textsize = "15px",
+#                 direction = "auto")) %>% 
+#   addLegend(pal = blues, values = ~zip, opacity = 0.7, title = NULL,
+#             position = "topright")
+
+```
+
+
 ### Popup Labels
 
-```{r, cache=TRUE, eval=FALSE}
+```{r, cache=TRUE, eval=TRUE}
 
-# content_df <- stations$stationBeanList %>%
-#   mutate(
-#     content = paste(
-#       sep = "<br/>",
-#       glue("<b><a>{stationName}</a></b>"),
-#       #stAddress1,
-#       location,
-#       city,
-#       postalCode
-#       )
-#     )
-# 
-# leaflet(content_df) %>%
-#   addTiles() %>%
-#   addPopups(
-#     content_df$latitude,
-#     content_df$longitude,
-#     content_df$content,
-#     options = popupOptions(closeButton = FALSE)
-#   )
+content_df <- stations$stationBeanList %>%
+    sample_n(100) %>% 
+  mutate(
+    content = paste(
+      sep = "<br/>",
+      glue("<b><a>{stationName}</a></b>"),
+      #stAddress1,
+      paste(city,'IL',postalCode, sep=', '),
+      paste(latitude, longitude, sep=', ')
+    )
+  )
+
+leaflet(content_df) %>%
+  setView(-87.653449, 41.894556, 11) %>% # This line sets the default zoom
+  addTiles() %>%
+  addMarkers(
+    content_df$longitude,
+    content_df$latitude,
+    popup = ~content_df$content
+  )
+
+```
+
+
+### Popup Labels
+
+```{r, cache=TRUE, eval=TRUE}
+
+content_df2 <- stations$stationBeanList %>%
+  sample_n(100) 
+
+labs <- lapply(seq(nrow(content_df2)), function(i) {
+  paste0('<p><b><a>', content_df2[i, "stationName"], '</a></b><p></p>', 
+          content_df2[i, "city"], ', IL, ', 
+          content_df2[i, "postalCode"],'</p><p>', 
+          content_df2[i, "latitude"], ', ', content_df2[i, "longitude"], '</p>'
+         )
+  }
+)
+
+leaflet(content_df2) %>%
+  setView(-87.653449, 41.894556, 11) %>% # This line sets the default zoom
+  addTiles() %>%
+  addMarkers(
+    content_df2$longitude,
+    content_df2$latitude,
+    label = lapply(labs, HTML)
+  )
 
 ```
 
@@ -160,7 +280,7 @@ stations$stationBeanList %>%
 
 ```{r, cache=TRUE}
 
-leaflet() %>%
+leaflet(stations$stationBeanList) %>%
   addTiles() %>%
   addMarkers(
     lat = stations$stationBeanList$latitude, 
@@ -267,59 +387,15 @@ leaflet(stations$stationBeanList) %>%
 ```
 
 
-### Zip Codes
-
-```{r, cache=TRUE}
-
-# https://data.cityofchicago.org/browse/select_dataset?tags=shapefiles&utf8=%E2%9C%93
-chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
-                                      what = "sp")
-
-factblues <- colorFactor(palette = "Blues", chi_zips$zip)
-
-leaflet(chi_zips) %>%
-  addTiles() %>%
-  addPolygons(fillColor = ~factblues(zip),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.7,
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE),
-              label = ~zip,
-              labelOptions = labelOptions(
-                style = list("font-weight" = "normal", padding = "3px 8px"),
-                textsize = "15px",
-                direction = "auto")) %>% 
-  addLegend(pal = factblues, values = ~zip, opacity = 0.7, title = NULL,
-            position = "topright")
-
-```
-
-
-
-
-
 ### Time Stamp
 
 ```{r, cache=TRUE}
 
-stations$executionTime
+print(paste("TimeStamp:",stations$executionTime))
 
-```
+print(paste("Total Docks:",sum(stations$stationBeanList$totalDocks)))
 
-
-### Totals
-
-```{r, cache=TRUE}
-
-sum(stations$stationBeanList$availableDocks)
-sum(stations$stationBeanList$totalDocks)
+print(paste("Total Docks Available:",sum(stations$stationBeanList$availableDocks)))
 
 ```
 
@@ -431,8 +507,11 @@ divvy_trips %>%
     )
   ) %>% 
   arrange(-DISTANCE) %>% 
-  select(`TRIP ID`, `FROM STATION NAME`, `TO STATION NAME`, DISTANCE) %>% 
-  head() %>% 
+  mutate(DISTANCE_MILES = DISTANCE / 1609.344) %>% 
+  select(`TRIP ID`, `FROM STATION NAME`, `TO STATION NAME`, DISTANCE_MILES) %>%
+  head(20) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  rename(`DISTANCE (MILES)` = DISTANCE_MILES) %>% 
   kable() %>% 
   kable_styling()
 
@@ -481,7 +560,7 @@ simpleNetwork(divvy_trips %>%
 
 ### Force Network Viz
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 # First, we need the frequency of trips from one station to the next
 # source, target, value
@@ -516,11 +595,12 @@ DivvyNodes <- divvy_trips %>%
 #   kable() %>% 
 #   kable_styling()
 
-forceNetwork(Links = DivvyLinks, Nodes = DivvyNodes, Source = "source", Target = "target", Value = "value", NodeID = "name", Group = "group", opacity = 0.4)
+# forceNetwork(Links = DivvyLinks, Nodes = DivvyNodes, Source = "source", Target = "target", Value = "value", NodeID = "name", Group = "group", opacity = 0.4)
+
 ```
 
 
-### Force Network Viz Sample
+### Force Network Viz Example
 
 ```{r, cache=TRUE}
 data(MisLinks, MisNodes)
@@ -533,9 +613,11 @@ data(MisLinks, MisNodes)
 # http://curleylab.psych.columbia.edu/netviz/netviz2.html#/
 
 # with a simple click action - make the circles bigger when clicked
-MyClickScript <- 
-  'd3.select(this).select("circle")
-.transition().duration(750).attr("r", 40)'
+MyClickScript <- 'd3.select(this)
+.select("circle")
+.transition()
+.duration(750)
+.attr("r", 40)'
 
 
 browsable(
@@ -549,9 +631,7 @@ browsable(
              zoom = T,
              clickAction = MyClickScript),
     tags$script(
-      '
-      document.body.style.backgroundColor = "#000000"
-      '      
+      'document.body.style.backgroundColor = "#000000"'      
     )
   )
 )
