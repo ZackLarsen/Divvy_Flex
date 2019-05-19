@@ -1,0 +1,394 @@
+---
+title: "Chicago Crime Dashboard"
+author: "Zack Larsen"
+date: "May 18, 2019"
+output: 
+  flexdashboard::flex_dashboard:
+    social: [ "twitter", "facebook", "github", "menu" ]
+    source: embed
+---
+
+```{r setup, include=FALSE}
+library(pacman)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, tidyverse)
+conflict_prefer("filter", "dplyr")
+
+here::here() # "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex"
+
+stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
+
+crimes <- fread(here("data","Crimes_sample.csv"))
+
+ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
+
+```
+
+
+Landing Page - Crime Map
+=========================================
+
+Column 
+-------------------------------------
+
+### Crimes, plotted using leaflet. This map can be zoomed in on interactively and the station names will be displayed upon clicking the icon.
+
+```{r, cache=TRUE}
+
+crimes_popup <- crimes %>% 
+  mutate(
+    popup_text = paste(
+      sep = "<br/>",
+      glue("<b><a>{`Primary Type`}</a></b>"),
+      Description,
+      Date,
+      paste(Latitude, Longitude, sep=', ')
+    )
+  ) %>% 
+  na.omit()
+
+my_map <- leaflet(crimes_popup) %>%
+  addTiles() %>%
+  addMarkers(lat = crimes_popup$Latitude,
+             lng = crimes_popup$Longitude,
+             label = lapply(crimes_popup$popup_text, HTML)
+             )
+my_map
+
+```
+
+***
+
+https://rstudio.github.io/leaflet/
+
+- Interactive panning/zooming
+
+- Notice the icons, when clicked, display the crime description and time when it was committed/reported
+
+
+Column {.tabset}
+-------------------------------------
+   
+### Data
+
+```{r, cache=TRUE}
+
+crimes %>% 
+  select(`Case Number`, Date, `Primary Type`, Description) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```   
+
+
+### Crimes Involving Use of Firearm
+    
+```{r, cache=TRUE, eval=TRUE}
+
+crimes %>% 
+  filter(grepl("GUN",Description)) %>% 
+  select(`Case Number`, Date, `Primary Type`, Description) %>% 
+  arrange(Date) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Arrests Made
+    
+```{r, cache=TRUE, eval=TRUE}
+
+crimes %>% 
+  filter(Arrest == TRUE) %>% 
+  select(`Case Number`, Date, Arrest, `Primary Type`, Description) %>% 
+  arrange(Date) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+Crime Features {.storyboard}
+=========================================
+
+
+### Clusters
+
+```{r, cache=TRUE, eval=TRUE}
+
+crimes_full <- crimes %>% na.omit()
+
+leaflet(crimes_full) %>%
+  addTiles() %>%
+  addMarkers(
+    lat = crimes_full$Latitude, 
+    lng = crimes_full$Longitude,
+    clusterOptions = markerClusterOptions()
+  )
+
+```
+
+
+### Custom Gun Icons
+
+```{r, cache=TRUE, eval=TRUE}
+
+# https://rstudio.github.io/leaflet/markers.html
+gunIcon <- makeIcon(
+  iconUrl = here("handgun.png"),
+  iconWidth = 35, iconHeight = 35,
+  iconAnchorX = 0, iconAnchorY = 10
+)
+
+leaflet(crimes %>% filter(grepl("GUN",Description)) %>% na.omit()) %>%
+  addTiles() %>%
+  addMarkers(~Longitude, ~Latitude, icon = gunIcon)
+
+```
+
+
+### Tile Layers
+
+```{r, cache=TRUE, eval=TRUE}
+
+leaflet(crimes) %>%
+  # Base groups
+  addTiles(group = "Default") %>%
+  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
+  addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012, group = "NASA") %>%
+  addProviderTiles(providers$Stamen.Watercolor, group = "Watercolor") %>% 
+  # Overlay groups
+  addCircles(~Longitude, ~Latitude, group = "Crimes") %>%
+  # Layers control
+  addLayersControl(
+    baseGroups = c("Default", "Toner", "NASA", "Watercolor"),
+    overlayGroups = c("Crimes"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+```
+
+
+### Circle Layers
+
+```{r, cache=TRUE, eval=TRUE}
+
+BATTERY <- crimes[crimes$`Primary Type` == 'BATTERY',]
+ROBBERY <- crimes[crimes$`Primary Type` == 'ROBBERY',]
+HOMICIDE <- crimes[crimes$`Primary Type` == 'HOMICIDE',]
+ASSAULT <- crimes[crimes$`Primary Type` == 'ASSAULT',]
+PROSTITUTION <- crimes[crimes$`Primary Type` == 'PROSTITUTION',]
+GTA <- crimes[crimes$`Primary Type` == 'MOTOR VEHICLE THEFT',]
+
+leaflet(crimes) %>%
+  # Base groups
+  addTiles(group = "Default") %>%
+  # Overlay groups
+  addCircles(~BATTERY$Longitude, ~BATTERY$Latitude, group = "BATTERY") %>%
+  addCircles(~ROBBERY$Longitude, ~ROBBERY$Latitude, group = "ROBBERY") %>%
+  addCircles(~HOMICIDE$Longitude, ~HOMICIDE$Latitude, group = "HOMICIDE") %>%
+  addCircles(~ASSAULT$Longitude, ~ASSAULT$Latitude, group = "ASSAULT") %>%
+  addCircles(~PROSTITUTION$Longitude, ~PROSTITUTION$Latitude, group = "PROSTITUTION") %>%
+  addCircles(~GTA$Longitude, ~GTA$Latitude, group = "GTA") %>%
+  # Layers control
+  addLayersControl(
+    overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+```
+
+
+### Custom icon colors
+
+```{r, eval=FALSE}
+
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = getColor(crimes)
+)
+
+leaflet(crimes) %>%
+  addTiles() %>%
+  addAwesomeMarkers(~Longitude, ~Latitude, icon=icons, label=~as.character(`Primary Type`))
+
+```
+
+
+Ward Features {.storyboard}
+=========================================
+
+
+### Crime Totals By Ward
+
+```{r, cache=TRUE, eval=TRUE}
+
+ward_totals <- crimes %>% 
+  select(Ward, `Primary Type`) %>% 
+  group_by(Ward) %>% 
+  summarise(n()) %<>% 
+  mutate(count = `n()`)
+
+ward_totals <- setNames(ward_totals$count, as.character(ward_totals$Ward))
+
+ward_boundaries$crime_total <- ward_totals
+
+labels <- sprintf(
+  "<strong>Ward #%s</strong><br/> %g crimes committed in this ward",
+  ward_boundaries$ward, ward_boundaries$crime_total
+) %>% lapply(htmltools::HTML)
+
+
+qpal <- colorQuantile("Reds", ward_boundaries$crime_total, n = 10)
+
+leaflet(ward_boundaries) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~qpal(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              highlight = highlightOptions(
+                weight = 3, # This is the width of the dashed line
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              label = ~labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>% 
+  addLegend(pal = qpal, 
+            values = ~crime_total,
+            opacity = 0.7, 
+            title = "Crime Count Quantile",
+            position = "topright")
+
+```
+
+
+### Crime Totals By Ward, Layered By Primary Type
+
+```{r, cache=TRUE, eval=FALSE}
+
+ward_totals_by_type <- crimes %>% 
+  select(Ward, `Primary Type`) %>% 
+  group_by(Ward, `Primary Type`) %>% 
+  summarise(n()) %<>% 
+  rename(count = `n()`) %>% 
+  dplyr::spread(key = `Primary Type`,value = count)
+
+ward_totals_by_type[is.na(ward_totals_by_type)] <- 0
+
+battery_totals <- setNames(ward_totals_by_type$BATTERY, as.character(ward_totals_by_type$Ward))
+robbery_totals <- setNames(ward_totals_by_type$ROBBERY, as.character(ward_totals_by_type$Ward))
+homicide_totals <- setNames(ward_totals_by_type$HOMICIDE, as.character(ward_totals_by_type$Ward))
+assault_totals <- setNames(ward_totals_by_type$ASSAULT, as.character(ward_totals_by_type$Ward))
+prostitution_totals <- setNames(ward_totals_by_type$PROSTITUTION, as.character(ward_totals_by_type$Ward))
+gta_totals <- setNames(ward_totals_by_type$`MOTOR VEHICLE THEFT`, as.character(ward_totals_by_type$Ward))
+
+ward_boundaries$battery_total <- battery_totals
+ward_boundaries$robbery_total <- robbery_totals
+ward_boundaries$homicide_total <- homicide_totals
+ward_boundaries$assault_total <- assault_totals
+ward_boundaries$prostitution_total <- prostitution_totals
+ward_boundaries$gta_total <- gta_totals
+
+get_palette <- function(category){
+  colorQuantile("Reds", ward_boundaries$category, n = 10)
+}
+
+leaflet(ward_boundaries) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~get_palette(battery_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "BATTERY",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+  addPolygons(fillColor = ~get_palette(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "ROBBERY",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+  addPolygons(fillColor = ~get_palette(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "HOMICIDE",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+  addPolygons(fillColor = ~get_palette(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "ASSAULT",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+  addPolygons(fillColor = ~get_palette(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "PROSTITUTION",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+  addPolygons(fillColor = ~get_palette(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              group = "GTA",
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE)) %>% 
+
+  addLayersControl(
+    overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+```
