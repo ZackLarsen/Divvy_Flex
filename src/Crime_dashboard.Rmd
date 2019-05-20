@@ -10,7 +10,8 @@ output:
 
 ```{r setup, include=FALSE}
 library(pacman)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, tidyverse)
+library(tidyverse)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite)
 conflict_prefer("filter", "dplyr")
 
 here::here() # "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex"
@@ -216,6 +217,39 @@ icons <- awesomeIcons(
 leaflet(crimes) %>%
   addTiles() %>%
   addAwesomeMarkers(~Longitude, ~Latitude, icon=icons, label=~as.character(`Primary Type`))
+
+```
+
+
+### Treemap
+
+```{r, cache=TRUE, eval=TRUE}
+
+thm <- 
+  hc_theme(
+    colors = c("#1a6ecc", "#434348", "#90ed7d"),
+    chart = list(
+      backgroundColor = "transparent",
+      style = list(fontFamily = "Source Sans Pro")
+    ),
+    xAxis = list(
+      gridLineWidth = 1
+    )
+  )
+
+treemap_data <- crimes %>% 
+  select(`Case Number`, `Primary Type`, Description) %>% 
+  group_by(`Primary Type`, Description) %>% 
+  summarise(Count = n_distinct(`Case Number`))
+
+tm <- treemap(treemap_data, index = c("Primary Type", "Description"),
+              vSize = "Count", vColor = "Count",
+              type = "value", palette = rev(viridis(6)))
+
+highchart() %>% 
+  hc_add_series_treemap(tm, allowDrillToNode = TRUE,
+                        layoutAlgorithm = "squarified") %>% 
+  hc_add_theme(thm)
 
 ```
 
