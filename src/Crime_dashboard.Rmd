@@ -257,7 +257,7 @@ highchart() %>%
 
 ### Heatmap
 
-```{r, cashe=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=TRUE}
 
 leaflet(crimes) %>%
   addTiles() %>% 
