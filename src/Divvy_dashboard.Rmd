@@ -16,6 +16,14 @@ conflict_prefer("filter", "dplyr")
 here::here()
 
 stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
+
+divvy_trips <- fread(here("data",'Divvy_trips_sample.csv'))
+
+chi_zips <- geojsonio::geojson_read(here("data",'Chicago_Zipcodes.geojson'),
+                                      what = "sp")
+
+ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
+
 ```
 
 
@@ -164,102 +172,7 @@ leaflet(chi_zips) %>%
 ```
 
 
-### Zip Code Mapped To Trips
-
-```{r, cache=TRUE}
-
-chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
-                                      what = "sp")
-
-chi_zips
-
-as.data.frame(chi_zips)
-
-# zip_trip_counts <- divvy_trips %>% 
-#   select(`FROM STATION ID`) %>% 
-#   group_by(`FROM STATION ID`) %>% 
-#   summarise(trip_count = n())
-# 
-# zip_trip_counts
-
-
-
-
-# stations
-
-
-#merge(chi_zips, zip_trip_counts, by.x = "zip", by.y = "Zip Codes")
-
-# Create a continuous palette function
-# blues <- colorNumeric(
-#   palette = "Blues",
-#   domain = chi_zips$trip_count)
-# 
-# leaflet(chi_zips) %>%
-#   addTiles() %>%
-#   addPolygons(fillColor = ~blues(zip),
-#               weight = 2,
-#               opacity = 1,
-#               color = "white",
-#               dashArray = "3",
-#               fillOpacity = 0.7,
-#               highlight = highlightOptions(
-#                 weight = 5,
-#                 color = "#666",
-#                 dashArray = "",
-#                 fillOpacity = 0.7,
-#                 bringToFront = TRUE),
-#               label = ~zip,
-#               labelOptions = labelOptions(
-#                 style = list("font-weight" = "normal", padding = "3px 8px"),
-#                 textsize = "15px",
-#                 direction = "auto")) %>% 
-#   addLegend(pal = blues, values = ~zip, opacity = 0.7, title = NULL,
-#             position = "topright")
-
-
-
-ward_totals <- crimes %>% 
-  select(Ward, `Primary Type`) %>% 
-  group_by(Ward) %>% 
-  summarise(n()) %<>% 
-  mutate(count = `n()` * 50)
-
-ward_totals <- setNames(ward_totals$count, as.character(ward_totals$Ward))
-
-ward_boundaries$crime_total <- ward_totals
-
-qpal <- colorQuantile("Reds", ward_boundaries$crime_total, n = 10)
-
-leaflet(ward_boundaries) %>%
-  addTiles() %>%
-  addPolygons(fillColor = ~qpal(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE),
-              label = ~ward,
-              labelOptions = labelOptions(
-                style = list("font-weight" = "normal", padding = "3px 8px"),
-                textsize = "15px",
-                direction = "auto")) %>% 
-  addLegend(pal = qpal, 
-            values = ~crime_total,
-            opacity = 0.7, 
-            title = "Crime Count Quantile",
-            position = "topright")
-
-```
-
-
-### Popup Labels
+### Popups
 
 ```{r, cache=TRUE, eval=TRUE}
 
@@ -287,7 +200,7 @@ leaflet(content_df) %>%
 ```
 
 
-### Popup Labels
+### Labels
 
 ```{r, cache=TRUE, eval=TRUE}
 
@@ -449,8 +362,6 @@ Column
 
 ```{r, cache=TRUE}
 
-divvy_trips <- fread('/Users/zacklarsen/Zack_Master/Datasets/Divvy_Trips.csv', nrows = 10000)
-
 divvy_trips %>% 
   head(50) %>% 
   datatable(
@@ -584,9 +495,101 @@ Trip Features {.storyboard}
 =========================================
 
 
-### Simple Network Viz
+### Zip Code Mapped To Trips
 
 ```{r, cache=TRUE}
+
+chi_zips
+
+as.data.frame(chi_zips)
+
+# zip_trip_counts <- divvy_trips %>% 
+#   select(`FROM STATION ID`) %>% 
+#   group_by(`FROM STATION ID`) %>% 
+#   summarise(trip_count = n())
+# 
+# zip_trip_counts
+
+
+
+
+# stations
+
+
+#merge(chi_zips, zip_trip_counts, by.x = "zip", by.y = "Zip Codes")
+
+# Create a continuous palette function
+# blues <- colorNumeric(
+#   palette = "Blues",
+#   domain = chi_zips$trip_count)
+# 
+# leaflet(chi_zips) %>%
+#   addTiles() %>%
+#   addPolygons(fillColor = ~blues(zip),
+#               weight = 2,
+#               opacity = 1,
+#               color = "white",
+#               dashArray = "3",
+#               fillOpacity = 0.7,
+#               highlight = highlightOptions(
+#                 weight = 5,
+#                 color = "#666",
+#                 dashArray = "",
+#                 fillOpacity = 0.7,
+#                 bringToFront = TRUE),
+#               label = ~zip,
+#               labelOptions = labelOptions(
+#                 style = list("font-weight" = "normal", padding = "3px 8px"),
+#                 textsize = "15px",
+#                 direction = "auto")) %>% 
+#   addLegend(pal = blues, values = ~zip, opacity = 0.7, title = NULL,
+#             position = "topright")
+
+
+
+ward_totals <- crimes %>% 
+  select(Ward, `Primary Type`) %>% 
+  group_by(Ward) %>% 
+  summarise(n()) %<>% 
+  mutate(count = `n()` * 50)
+
+ward_totals <- setNames(ward_totals$count, as.character(ward_totals$Ward))
+
+ward_boundaries$crime_total <- ward_totals
+
+qpal <- colorQuantile("Reds", ward_boundaries$crime_total, n = 10)
+
+leaflet(ward_boundaries) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~qpal(crime_total),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.9,
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              label = ~ward,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>% 
+  addLegend(pal = qpal, 
+            values = ~crime_total,
+            opacity = 0.7, 
+            title = "Crime Count Quantile",
+            position = "topright")
+
+```
+
+
+### Simple Network Viz
+
+```{r, cache=TRUE, eval=FALSE}
 
 simpleNetwork(divvy_trips %>% 
                 select(`FROM STATION NAME`, `TO STATION NAME`) %>% 
@@ -641,7 +644,7 @@ DivvyNodes <- divvy_trips %>%
 
 ### Force Network Viz Example
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 data(MisLinks, MisNodes)
 
 #MisLinks # source, target, value
