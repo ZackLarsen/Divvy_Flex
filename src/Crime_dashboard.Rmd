@@ -11,14 +11,15 @@ output:
 ```{r setup, include=FALSE}
 library(pacman)
 library(tidyverse)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite)
+p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite, ggmap)
 conflict_prefer("filter", "dplyr")
 
 here::here() # "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex"
 
 stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
 
-crimes <- fread(here("data","Crimes_sample.csv"))
+crimes <- fread(here("data","Crimes_sample.csv")) %>% 
+  na.omit()
 
 ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
 
@@ -250,6 +251,19 @@ highchart() %>%
   hc_add_series_treemap(tm, allowDrillToNode = TRUE,
                         layoutAlgorithm = "squarified") %>% 
   hc_add_theme(thm)
+
+```
+
+
+### Heatmap
+
+```{r, cashe=TRUE, eval=TRUE}
+
+leaflet(crimes) %>%
+  addTiles() %>% 
+  addHeatmap(lng=~Longitude,
+             lat=~Latitude,
+             radius = 8)
 
 ```
 
