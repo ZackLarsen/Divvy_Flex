@@ -12,21 +12,61 @@ output:
     source: embed
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, cache=TRUE}
 library(pacman)
 library(tidyverse)
-p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite, ggmap)
+p_load(flexdashboard, leaflet, leaflet.extras, dplyr, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite)
 conflict_prefer("filter", "dplyr")
 
 here::here() # "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex"
 
-divvy_stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
+divvy_stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")$stationBeanList
 
+red_light_cameras <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Red_Light_Camera_Locations.csv")
 
+speed_cameras <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Speed_Camera_Locations.csv")
 
+cta_stations <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/CTA_L_Stations.csv")
 
+cta_bus_stops <- geojsonio::geojson_read("/Users/zacklarsen/Zack_Master/Datasets/Chicago/CTA_Bus_Stops.geojson", what = "sp")
+
+zip_boundaries <- geojsonio::geojson_read("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Boundaries_ZIP_Codes.geojson", what = "sp")
 
 ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
+
+neighborhood_boundaires <- geojsonio::geojson_read("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Boundaries_Neighborhoods.geojson", what = "sp")
+
+# Extract lat, lon from location tuple
+strip_parens <- function(x){
+  str_remove_all(x, "[()]")
+}
+
+cta_stations %<>% 
+  select(Location) %>% 
+  separate(Location, c("Latitude", "Longitude"), sep = ", ") %>% 
+  mutate_at(c("Latitude", "Longitude"), strip_parens) %>% 
+  mutate_at(c("Latitude", "Longitude"), as.numeric)
+
+
+
+
+# Extract coordinates from geojson list
+cta_bus_stops_list <- geojsonio::geojson_read("/Users/zacklarsen/Zack_Master/Datasets/Chicago/CTA_Bus_Stops.geojson", what = "list")
+
+coords <- vector("list", length(cta_bus_stops_list$features)) 
+
+for(i in 1:length(cta_bus_stops_list$features)){
+  y <- cta_bus_stops_list$features[[i]]$properties$point_y
+  x <- cta_bus_stops_list$features[[i]]$properties$point_x
+  coords[[i]] <- paste(y,x,sep = ",")
+}
+
+cta_bus_stops_df <- as.data.frame(do.call(rbind,coords))
+
+cta_bus_stops_df %<>% 
+  select(V1) %>% 
+  separate(V1, c("Latitude", "Longitude"), sep = ",") %>% 
+  mutate_at(c("Latitude", "Longitude"), as.numeric)
 
 ```
 
@@ -37,9 +77,108 @@ Landing Page
 Column 
 -------------------------------------
 
+
 ### Crimes, plotted using leaflet. This map can be zoomed in on interactively and the station names will be displayed upon clicking the icon.
 
 ```{r, cache=TRUE}
+
+#divvy_stations
+
+#red_light_cameras
+
+#speed_cameras
+
+#cta_stations
+
+#cta_bus_stops
+
+leaflet(divvy_stations) %>%
+  # Base groups
+  addTiles() %>%
+  # Overlay groups
+  addCircles(~divvy_stations$longitude, ~divvy_stations$latitude, group = "Divvy Stations") %>%
+  addCircles(~red_light_cameras$LONGITUDE, ~red_light_cameras$LATITUDE, group = "Red Light Cameras", color = "red") %>%
+  addCircles(~speed_cameras$LONGITUDE, ~speed_cameras$LATITUDE, group = "Speed Cameras", color = "yellow") %>%
+  addCircles(~cta_stations$Longitude, ~cta_stations$Latitude, group = "CTA L Stations", color = "blue") %>%
+  addCircles(~cta_bus_stops_df$Longitude, ~cta_bus_stops_df$Latitude, group = "CTA Bus Stops", color = "green") %>%
+  # Layers control
+  addLayersControl(
+    overlayGroups = c("Divvy Stations","Red Light Cameras","Speed Cameras","CTA L Stations","CTA Bus Stops"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+```
+
+***
+
+Click on the selectors to highlight different layers of points of interest.
+
+
+Column {.tabset}
+-------------------------------------
+
+### Data
+
+```{r, cache=TRUE, eval=TRUE}
+
+cta_bus_stops <- geojsonio::geojson_read("/Users/zacklarsen/Zack_Master/Datasets/Chicago/CTA_Bus_Stops.geojson", what = "list")
+
+coords <- vector("list", length(cta_bus_stops$features)) 
+
+for(i in 1:length(cta_bus_stops$features)){
+  y <- cta_bus_stops$features[[i]]$properties$point_y
+  x <- cta_bus_stops$features[[i]]$properties$point_x
+  coords[[i]] <- paste(x,y,sep = ",")
+}
+
+cta_bus_stops_df <- as.data.frame(do.call(rbind,coords))
+
+cta_bus_stops_df %<>% 
+  select(V1) %>% 
+  separate(V1, c("Latitude", "Longitude"), sep = ",") %>% 
+  mutate_at(c("Latitude", "Longitude"), as.numeric)
+
+```   
+
+
+### Crimes Involving Use of Firearm
+    
+```{r, cache=TRUE, eval=FALSE}
+
+crimes %>% 
+  filter(grepl("GUN",Description)) %>% 
+  select(`Case Number`, Date, `Primary Type`, Description) %>% 
+  arrange(Date) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+### Arrests Made
+    
+```{r, cache=TRUE, eval=FALSE}
+
+crimes %>% 
+  filter(Arrest == TRUE) %>% 
+  select(`Case Number`, Date, Arrest, `Primary Type`, Description) %>% 
+  arrange(Date) %>% 
+  head(n=20) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+
+Statistical {.storyboard}
+=========================================
+
+These visualization convey information about distributions and uncertainty.
+
+### Popup
+
+```{r, cache=TRUE, eval=FALSE}
 
 crimes_popup <- crimes %>% 
   mutate(
@@ -63,72 +202,6 @@ my_map
 
 ```
 
-***
-
-https://rstudio.github.io/leaflet/
-
-- Interactive panning/zooming
-
-- Notice the icons, when clicked, display the crime description and time when it was committed/reported
-
-
-Column {.tabset}
--------------------------------------
-   
-### Data
-
-```{r, cache=TRUE}
-
-crimes %>% 
-  select(`Case Number`, Date, `Primary Type`, Description) %>% 
-  head(n=20) %>% 
-  kable() %>% 
-  kable_styling()
-
-```   
-
-
-### Crimes Involving Use of Firearm
-    
-```{r, cache=TRUE, eval=TRUE}
-
-crimes %>% 
-  filter(grepl("GUN",Description)) %>% 
-  select(`Case Number`, Date, `Primary Type`, Description) %>% 
-  arrange(Date) %>% 
-  head(n=20) %>% 
-  kable() %>% 
-  kable_styling()
-
-```
-
-
-### Arrests Made
-    
-```{r, cache=TRUE, eval=TRUE}
-
-crimes %>% 
-  filter(Arrest == TRUE) %>% 
-  select(`Case Number`, Date, Arrest, `Primary Type`, Description) %>% 
-  arrange(Date) %>% 
-  head(n=20) %>% 
-  kable() %>% 
-  kable_styling()
-
-```
-
-
-Statistical {.storyboard}
-=========================================
-
-These visualization convey information about distributions and uncertainty.
-
-### Boxplots
-
-```{r, cache=TRUE, eval=TRUE}
-
-```
-
 
 Categorical {.storyboard}
 =========================================
@@ -137,7 +210,7 @@ These visualizations correspond to count data obtained by aggregating by certain
 
 ### Treemap
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 thm <- 
   hc_theme(
@@ -175,7 +248,7 @@ This board is for displaying information about coordinate points or geospatial f
 
 ### Clusters
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 crimes_full <- crimes %>% na.omit()
 
@@ -192,7 +265,7 @@ leaflet(crimes_full) %>%
 
 ### Custom Gun Icons
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 # https://rstudio.github.io/leaflet/markers.html
 gunIcon <- makeIcon(
@@ -210,7 +283,7 @@ leaflet(crimes %>% filter(grepl("GUN",Description)) %>% na.omit()) %>%
 
 ### Tile Layers
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 leaflet(crimes) %>%
   # Base groups
@@ -224,36 +297,6 @@ leaflet(crimes) %>%
   addLayersControl(
     baseGroups = c("Default", "Toner", "NASA", "Watercolor"),
     overlayGroups = c("Crimes"),
-    options = layersControlOptions(collapsed = FALSE)
-  )
-
-```
-
-
-### Circle Layers
-
-```{r, cache=TRUE, eval=TRUE}
-
-BATTERY <- crimes[crimes$`Primary Type` == 'BATTERY',]
-ROBBERY <- crimes[crimes$`Primary Type` == 'ROBBERY',]
-HOMICIDE <- crimes[crimes$`Primary Type` == 'HOMICIDE',]
-ASSAULT <- crimes[crimes$`Primary Type` == 'ASSAULT',]
-PROSTITUTION <- crimes[crimes$`Primary Type` == 'PROSTITUTION',]
-GTA <- crimes[crimes$`Primary Type` == 'MOTOR VEHICLE THEFT',]
-
-leaflet(crimes) %>%
-  # Base groups
-  addTiles(group = "Default") %>%
-  # Overlay groups
-  addCircles(~BATTERY$Longitude, ~BATTERY$Latitude, group = "BATTERY") %>%
-  addCircles(~ROBBERY$Longitude, ~ROBBERY$Latitude, group = "ROBBERY") %>%
-  addCircles(~HOMICIDE$Longitude, ~HOMICIDE$Latitude, group = "HOMICIDE") %>%
-  addCircles(~ASSAULT$Longitude, ~ASSAULT$Latitude, group = "ASSAULT") %>%
-  addCircles(~PROSTITUTION$Longitude, ~PROSTITUTION$Latitude, group = "PROSTITUTION") %>%
-  addCircles(~GTA$Longitude, ~GTA$Latitude, group = "GTA") %>%
-  # Layers control
-  addLayersControl(
-    overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"),
     options = layersControlOptions(collapsed = FALSE)
   )
 
@@ -280,7 +323,7 @@ leaflet(crimes) %>%
 
 ### Heatmap
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 leaflet(crimes) %>%
   addTiles() %>% 
@@ -297,7 +340,7 @@ Ward Features {.storyboard}
 
 ### Crime Totals By Ward
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 ward_totals <- crimes %>% 
   select(Ward, `Primary Type`) %>% 
@@ -345,126 +388,6 @@ leaflet(ward_boundaries) %>%
 ```
 
 
-### Crime Totals By Ward, Layered By Primary Type
-
-```{r, cache=TRUE, eval=FALSE}
-
-ward_totals_by_type <- crimes %>% 
-  select(Ward, `Primary Type`) %>% 
-  group_by(Ward, `Primary Type`) %>% 
-  summarise(n()) %<>% 
-  rename(count = `n()`) %>% 
-  dplyr::spread(key = `Primary Type`,value = count)
-
-ward_totals_by_type[is.na(ward_totals_by_type)] <- 0
-
-battery_totals <- setNames(ward_totals_by_type$BATTERY, as.character(ward_totals_by_type$Ward))
-robbery_totals <- setNames(ward_totals_by_type$ROBBERY, as.character(ward_totals_by_type$Ward))
-homicide_totals <- setNames(ward_totals_by_type$HOMICIDE, as.character(ward_totals_by_type$Ward))
-assault_totals <- setNames(ward_totals_by_type$ASSAULT, as.character(ward_totals_by_type$Ward))
-prostitution_totals <- setNames(ward_totals_by_type$PROSTITUTION, as.character(ward_totals_by_type$Ward))
-gta_totals <- setNames(ward_totals_by_type$`MOTOR VEHICLE THEFT`, as.character(ward_totals_by_type$Ward))
-
-ward_boundaries$battery_total <- battery_totals
-ward_boundaries$robbery_total <- robbery_totals
-ward_boundaries$homicide_total <- homicide_totals
-ward_boundaries$assault_total <- assault_totals
-ward_boundaries$prostitution_total <- prostitution_totals
-ward_boundaries$gta_total <- gta_totals
-
-get_palette <- function(category){
-  colorQuantile("Reds", ward_boundaries$category, n = 10)
-}
-
-leaflet(ward_boundaries) %>%
-  addTiles() %>%
-  addPolygons(fillColor = ~get_palette(battery_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "BATTERY",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "ROBBERY",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "HOMICIDE",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "ASSAULT",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "PROSTITUTION",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "GTA",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-
-  addLayersControl(
-    overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"),
-    options = layersControlOptions(collapsed = FALSE)
-  )
-
-```
-
-
 Custom {.storyboard}
 =========================================
 
@@ -472,6 +395,6 @@ This board is for visualizations that might not appear frequently in many exampl
 
 ### Dumbbell (Love) plot
 
-```{r, cache=TRUE, eval=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 ```
