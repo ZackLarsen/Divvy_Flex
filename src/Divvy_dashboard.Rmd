@@ -579,7 +579,7 @@ ward_boundaries %>%
 
 ### Lines
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 
 
 
