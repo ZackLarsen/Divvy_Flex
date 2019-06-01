@@ -4,13 +4,18 @@ author: "Zack Larsen"
 date: "May 15, 2019"
 output: 
   flexdashboard::flex_dashboard:
-    social: [ "twitter", "facebook", "github", "menu" ]
-    source: embed
+    theme: "journal"
+    social: [ "twitter", "facebook", "menu" ]
+    navbar:
+      - { title: "About Me", href: "https://zacklarsen.github.io/" }
+      - { icon: "fa-github", href: "https://github.com/ZackLarsen", align: right}
+      - { icon: "fa-linkedin", href: "https://www.linkedin.com/in/larsenzachary/", align: right}
 ---
 
 ```{r setup, include=FALSE}
 library(pacman)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio)
+library(tidyverse)
+p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr)
 conflict_prefer("filter", "dplyr")
 
 here::here()
@@ -23,6 +28,8 @@ chi_zips <- geojsonio::geojson_read(here("data",'Chicago_Zipcodes.geojson'),
                                       what = "sp")
 
 ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
+
+# https://cfss.uchicago.edu/notes/leaflet/
 
 ```
 
@@ -37,13 +44,33 @@ Column
 
 ```{r, cache=TRUE}
 
-my_map <- leaflet(stations$stationBeanList) %>%
+# my_map <- leaflet(stations$stationBeanList) %>%
+#   addTiles() %>%
+#   addMarkers(lat = stations$stationBeanList$latitude, 
+#              lng = stations$stationBeanList$longitude,
+#              popup = stations$stationBeanList$stationName,
+#              label = stations$stationBeanList$id)
+# my_map
+
+
+
+
+icons <- awesomeIcons(
+  icon = 'bicycle',
+  iconColor = 'white',
+  library = 'fa',
+  iconRotate = 0,
+  markerColor = "blue" #getColor(stations$stationBeanList$availableBikes)
+)
+
+leaflet(stations$stationBeanList) %>%
   addTiles() %>%
-  addMarkers(lat = stations$stationBeanList$latitude, 
-             lng = stations$stationBeanList$longitude,
-             popup = stations$stationBeanList$stationName,
-             label = stations$stationBeanList$id)
-my_map
+  addAwesomeMarkers(
+    ~longitude, 
+    ~latitude, 
+    icon=icons, 
+    label=~as.character(stationName)
+  )
 
 ```
 
@@ -115,10 +142,6 @@ stations$stationBeanList %>%
 ```
 
 
-Station Features {.storyboard}
-=========================================
-
-
 ### Damen Stations
 
 ```{r, cache=TRUE}
@@ -135,6 +158,8 @@ stations$stationBeanList %>%
 
 ```
 
+Station Features {.storyboard}
+=========================================
 
 
 ### Zip Codes
@@ -142,8 +167,7 @@ stations$stationBeanList %>%
 ```{r, cache=TRUE}
 
 # https://data.cityofchicago.org/browse/select_dataset?tags=shapefiles&utf8=%E2%9C%93
-chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/data/Chicago_Zipcodes.geojson',
-                                      what = "sp")
+chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/flex/data/Chicago_Zipcodes.geojson', what = "sp")
 
 factblues <- colorFactor(palette = "Blues", chi_zips$zip)
 
@@ -287,7 +311,7 @@ leaflet(stations$stationBeanList) %>%
 
 greenLeafIcon <- makeIcon(
   #iconUrl = "http://leafletjs.com/examples/custom-icons/leaf-green.png",
-  iconUrl = "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex/Divvy-icon.png",
+  iconUrl = "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/flex/Divvy-icon.png",
   iconWidth = 35, iconHeight = 35,
   iconAnchorX = 0, iconAnchorY = 10
   
@@ -311,43 +335,34 @@ leaflet(stations$stationBeanList) %>%
 # https://leaflet-extras.github.io/leaflet-providers/preview/index.html
 
 leaflet(stations$stationBeanList) %>%
-  addProviderTiles(providers$Stamen.Toner) %>%
-  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+  # Base groups
+  addTiles(group = "Default") %>%
+  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
+  addProviderTiles(providers$Stamen.Watercolor, group = "Watercolor") %>% 
+  addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012, group = "NASA") %>%
+  # Overlay groups
+  addCircles(~longitude, ~latitude, group = "Stations") %>%
+  # Layers control
+  addLayersControl(
+    baseGroups = c("Default", "Toner", "Watercolor", "NASA"),
+    overlayGroups = c("Stations"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
 
-```
-
-
-### Custom Tiles NASA
-
-```{r, cache=TRUE}
-
-leaflet(stations$stationBeanList) %>%
-  addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012) %>%
-  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
-
-```
-
-
-### Custom Tiles Watercolor
-
-```{r, cache=TRUE}
-
-leaflet(stations$stationBeanList) %>%
-  addProviderTiles(providers$Stamen.Watercolor) %>%
-  addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
-
-```
-
-
-### Time Stamp
-
-```{r, cache=TRUE}
-
-print(paste("TimeStamp:",stations$executionTime))
-
-print(paste("Total Docks:",sum(stations$stationBeanList$totalDocks)))
-
-print(paste("Total Docks Available:",sum(stations$stationBeanList$availableDocks)))
+# # Toner
+# leaflet(stations$stationBeanList) %>%
+#   addProviderTiles(providers$Stamen.Toner) %>%
+#   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+# 
+# # Watercolor
+# leaflet(stations$stationBeanList) %>%
+#   addProviderTiles(providers$Stamen.Watercolor) %>%
+#   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
+# 
+# # NASA
+# leaflet(stations$stationBeanList) %>%
+#   addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012) %>%
+#   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 
 ```
 
@@ -355,27 +370,30 @@ print(paste("Total Docks Available:",sum(stations$stationBeanList$availableDocks
 Landing Page - Trips
 =========================================
 
-Column 
+Column {.tabset}
 -------------------------------------
 
-### Divvy Trips
+### Divvy Trips Raw
 
 ```{r, cache=TRUE}
 
 divvy_trips %>% 
-  head(50) %>% 
-  datatable(
-  caption = 'Table 1: Divvy Trips.',
-  options = list(
-    buttons = c('csv'), 
-    paging = TRUE,
-    scrollX = FALSE,
-    initComplete = JS(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
-      "}")
-  )
-)
+  tibble()
+
+# divvy_trips %>% 
+#   head(50) %>% 
+#   datatable(
+#   caption = 'Table 1: Divvy Trips.',
+#   options = list(
+#     buttons = c('csv'), 
+#     paging = TRUE,
+#     scrollX = FALSE,
+#     initComplete = JS(
+#       "function(settings, json) {",
+#       "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+#       "}")
+#   )
+# )
 
 ```
 
@@ -383,9 +401,10 @@ divvy_trips %>%
 
 - Trip data provided by Divvy represents trips taken by Divvy users for the past several years
 
+
 Column {.tabset}
 -------------------------------------
-   
+
 ### Most Popular Departure Stations
 
 ```{r, cache=TRUE}
@@ -495,11 +514,83 @@ Trip Features {.storyboard}
 =========================================
 
 
+### Ward Trip Density
+
+```{r ward_trip_counts, cache=TRUE}
+
+ward_totals <- divvy_trips %>% 
+  select(Wards) %>% 
+  group_by(Wards) %>% 
+  tally() %>% 
+  rename(count = n)
+
+# Define color palette
+bins <- c(0, 10, 20, 30, 40, 50, Inf)
+pal <- colorBin("YlOrRd", domain = ward_totals$count, bins = bins)
+
+df50 <- as.data.frame(1:50)
+colnames(df50) <- "Wards"
+
+newdf <- left_join(df50, ward_totals, "Wards") 
+
+newdf$count %<>% 
+  replace_na(0)
+
+ward_totals <- setNames(newdf$count, as.character(newdf$Wards))
+
+
+# Add information to geojson data by using the named vector above
+ward_boundaries$trip_count <- ward_totals
+
+
+# Create the HTML content to serve as the popup label
+labels <- sprintf(
+  "<strong>Ward #%s</strong><br/> %g Trips taken from this ward",
+  ward_boundaries$ward, ward_boundaries$trip_count
+) %>% lapply(htmltools::HTML)
+
+
+ward_boundaries %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~pal(trip_count),
+              color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+              label = ~labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+  addLegend(pal = pal,
+            values = ~trip_count,
+            opacity = 0.7,
+            title = NULL,
+            position = "bottomright")
+
+```
+
+
+
+### Lines
+
+```{r, cache=TRUE}
+
+
+
+```
+
+
 ### Zip Code Mapped To Trips
 
 ```{r, cache=TRUE}
 
-chi_zips
+#chi_zips
 
 as.data.frame(chi_zips)
 
@@ -547,42 +638,42 @@ as.data.frame(chi_zips)
 
 
 
-ward_totals <- crimes %>% 
-  select(Ward, `Primary Type`) %>% 
-  group_by(Ward) %>% 
-  summarise(n()) %<>% 
-  mutate(count = `n()` * 50)
-
-ward_totals <- setNames(ward_totals$count, as.character(ward_totals$Ward))
-
-ward_boundaries$crime_total <- ward_totals
-
-qpal <- colorQuantile("Reds", ward_boundaries$crime_total, n = 10)
-
-leaflet(ward_boundaries) %>%
-  addTiles() %>%
-  addPolygons(fillColor = ~qpal(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE),
-              label = ~ward,
-              labelOptions = labelOptions(
-                style = list("font-weight" = "normal", padding = "3px 8px"),
-                textsize = "15px",
-                direction = "auto")) %>% 
-  addLegend(pal = qpal, 
-            values = ~crime_total,
-            opacity = 0.7, 
-            title = "Crime Count Quantile",
-            position = "topright")
+# ward_totals <- crimes %>% 
+#   select(Ward, `Primary Type`) %>% 
+#   group_by(Ward) %>% 
+#   summarise(n()) %<>% 
+#   mutate(count = `n()` * 50)
+# 
+# ward_totals <- setNames(ward_totals$count, as.character(ward_totals$Ward))
+# 
+# ward_boundaries$crime_total <- ward_totals
+# 
+# qpal <- colorQuantile("Reds", ward_boundaries$crime_total, n = 10)
+# 
+# leaflet(ward_boundaries) %>%
+#   addTiles() %>%
+#   addPolygons(fillColor = ~qpal(crime_total),
+#               weight = 2,
+#               opacity = 1,
+#               color = "white",
+#               dashArray = "3",
+#               fillOpacity = 0.9,
+#               highlight = highlightOptions(
+#                 weight = 5,
+#                 color = "#666",
+#                 dashArray = "",
+#                 fillOpacity = 0.7,
+#                 bringToFront = TRUE),
+#               label = ~ward,
+#               labelOptions = labelOptions(
+#                 style = list("font-weight" = "normal", padding = "3px 8px"),
+#                 textsize = "15px",
+#                 direction = "auto")) %>% 
+#   addLegend(pal = qpal, 
+#             values = ~crime_total,
+#             opacity = 0.7, 
+#             title = "Crime Count Quantile",
+#             position = "topright")
 
 ```
 
