@@ -15,10 +15,12 @@ output:
 ```{r setup, include=FALSE}
 library(pacman)
 library(tidyverse)
-p_load(flexdashboard, leaflet, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, plotly)
+library(plotly)
+p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr)
+
 conflict_prefer("filter", "dplyr")
 
-here::here()
+#here::here()
 
 stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
 
@@ -328,7 +330,7 @@ leaflet(stations$stationBeanList) %>%
 ```
 
 
-### Custom Tiles Toner
+### Custom Tile Layers
 
 ```{r, cache=TRUE}
 
@@ -378,7 +380,8 @@ Column {.tabset}
 ```{r, cache=TRUE}
 
 divvy_trips %>% 
-  tibble()
+  tibble() %>% 
+  head()
 
 # divvy_trips %>% 
 #   head(50) %>% 
@@ -575,6 +578,18 @@ ward_boundaries %>%
 
 ```
 
+
+### Heatmap
+
+```{r, cache=TRUE, eval=TRUE}
+
+leaflet(divvy_trips) %>%
+  addTiles() %>% 
+  addHeatmap(lng=~`FROM LONGITUDE`,
+             lat=~`FROM LATITUDE`,
+             radius = 8)
+
+```
 
 
 ### Lines
