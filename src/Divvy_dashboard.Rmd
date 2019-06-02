@@ -715,15 +715,14 @@ p
 ```{r chord_prep, cache=TRUE, eval=FALSE}
 
 ## What we need to do here is create a spatial points data frame from the station coordinates and give it the same projection as we find in the neighborhoods shapefile.
-## Then, we will 
 
+## Then, we will compare the coordinate points of interest in the spatial points dataframe to the neighborhoods shapefile using sp::over(), which will return a list of which coordinate points fall within each neighborhood. This will be a named list where each value is a dataframe and the corresponding name for that element of the list will be the id for the neighborhood.
+
+## The last step is to take the resulting list and row-bind it but do so while retaining the neighborhood id number as a column for each of the dataframes so we have that attribute available to tell which neighborhood a point belongs to.
 
 
 #neighborhoods
-
-
 #neighborhoods@proj4string
-
 
 
 station_coords <- stations %>% 
@@ -732,27 +731,31 @@ station_coords <- stations %>%
 spdf <- SpatialPointsDataFrame(coords = station_coords %>% select(longitude, latitude), data = station_coords, proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 
 
-
-
 result <- sp::over(neighborhoods, spdf, returnList = TRUE)
 # names(result)
 # result
-
+#typeof(result[[1]]) # list
 
 
 
 #length(names(result)) # 98
 
 neighborhood_rows <- vector(mode = "list", length = length(names(result)))
-neighborhood_rows
+#neighborhood_rows
+
+#result[[11]]
+#dim(result[[11]])[0]
 
 
 for(i in names(result)){
   idf <- result[[i]]
-  idf$neighborhood <- i
-  
-  numeric_index <- as.numeric(i)
-  neighborhood_rows[[numeric_index+1]] <- idf
+  try(
+    if(dim(idf)[0] > 0){
+      idf$neighborhood <- i
+      numeric_index <- as.numeric(i)
+      neighborhood_rows[[numeric_index]] <- idf
+    }
+  , silent = TRUE)
 }
 
 neighborhood_rows_all <- do.call(rbind,neighborhood_rows)
@@ -795,6 +798,22 @@ ward_mat <- trip_wards %>%
   table()
 
 chorddiag(ward_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
+
+```
+
+
+### Sankey diagram
+
+```{r sankey, cache=TRUE, eval=FALSE}
+
+URL <- paste0(
+        "https://cdn.rawgit.com/christophergandrud/networkD3/",
+        "master/JSONdata/energy.json")
+Energy <- jsonlite::fromJSON(URL)
+
+sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source",
+             Target = "target", Value = "value", NodeID = "name",
+             units = "TWh", fontSize = 12, nodeWidth = 30)
 
 ```
 
