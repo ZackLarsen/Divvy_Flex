@@ -16,20 +16,24 @@ output:
 library(pacman)
 library(tidyverse)
 library(plotly)
-p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, circlize)
+p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, circlize, chorddiag, sp)
 
 conflict_prefer("filter", "dplyr")
 
 #here::here()
 
-stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")
+stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")$stationBeanList
 
 divvy_trips <- fread(here("data",'Divvy_trips_sample.csv'))
+
+Divvy_q4_trips <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Divvy_Trips_2018_Q4.csv", nrows = 1000)
 
 chi_zips <- geojsonio::geojson_read(here("data",'Chicago_Zipcodes.geojson'),
                                       what = "sp")
 
 ward_boundaries <- geojsonio::geojson_read(here("data","Boundaries_Wards.geojson"), what = "sp")
+
+neighborhoods <- geojsonio::geojson_read(here("data","Boundaries_Neighborhoods.geojson"), what = "sp")
 
 # https://cfss.uchicago.edu/notes/leaflet/
 
@@ -46,12 +50,12 @@ Column
 
 ```{r, cache=TRUE}
 
-# my_map <- leaflet(stations$stationBeanList) %>%
+# my_map <- leaflet(stations) %>%
 #   addTiles() %>%
-#   addMarkers(lat = stations$stationBeanList$latitude, 
-#              lng = stations$stationBeanList$longitude,
-#              popup = stations$stationBeanList$stationName,
-#              label = stations$stationBeanList$id)
+#   addMarkers(lat = stations$latitude, 
+#              lng = stations$longitude,
+#              popup = stations$stationName,
+#              label = stations$id)
 # my_map
 
 
@@ -62,10 +66,10 @@ icons <- awesomeIcons(
   iconColor = 'white',
   library = 'fa',
   iconRotate = 0,
-  markerColor = "blue" #getColor(stations$stationBeanList$availableBikes)
+  markerColor = "blue" #getColor(stations$availableBikes)
 )
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   addTiles() %>%
   addAwesomeMarkers(
     ~longitude, 
@@ -92,7 +96,7 @@ Column {.tabset}
 
 ```{r, cache=TRUE}
 
-stations$stationBeanList %>% 
+stations %>% 
   select(id, stationName, availableDocks, availableBikes) %>% 
   arrange(-availableDocks) %>% 
   head(n=20) %>% 
@@ -106,7 +110,7 @@ stations$stationBeanList %>%
     
 ```{r, cache=TRUE}
 
-stations$stationBeanList %>% 
+stations %>% 
   select(id, stationName, availableDocks, availableBikes) %>% 
   arrange(availableDocks) %>% 
   head(n=20) %>% 
@@ -120,7 +124,7 @@ stations$stationBeanList %>%
     
 ```{r, cache=TRUE}
 
-stations$stationBeanList %>% 
+stations %>% 
   select(id, stationName, totalDocks) %>% 
   arrange(-totalDocks) %>% 
   head(n=20) %>% 
@@ -134,7 +138,7 @@ stations$stationBeanList %>%
     
 ```{r, cache=TRUE}
 
-stations$stationBeanList %>% 
+stations %>% 
   select(id, stationName, totalDocks) %>% 
   arrange(totalDocks) %>% 
   head(n=20) %>% 
@@ -148,7 +152,7 @@ stations$stationBeanList %>%
 
 ```{r, cache=TRUE}
 
-stations$stationBeanList %>%
+stations %>%
   filter(
     #id == 2,
     is_renting == TRUE,
@@ -164,12 +168,84 @@ Station Features {.storyboard}
 =========================================
 
 
+### Station Count By Zip Code
+
+```{r zipCount, cache=TRUE, eval=TRUE, warning=FALSE}
+
+stationCount <- stations %>% 
+  select(id, postalCode) %>% 
+  group_by(postalCode) %>% 
+  tally() %>% 
+  arrange(-n) %>% 
+  rename(
+    "stationCount" = n,
+    "Zip" = postalCode
+    ) %>% 
+  data.frame()
+
+# Which zip codes in chi_zips are missing from stations?
+zips_df <- chi_zips$zip %>% 
+  sort() %>% 
+  data.frame()
+colnames(zips_df) <- "Zip"
+
+#setdiff(zips_df$Zip, stationCount$Zip)
+
+# Define color palette
+bins <- c(0, 5, 10, 15, 20, 25, 30, 35)
+pal <- colorBin("YlOrRd", domain = stationCount$stationCount, bins = bins)
+
+
+newdf <- left_join(zips_df, stationCount, "Zip") 
+
+newdf$stationCount %<>% 
+  replace_na(0)
+
+stationCount <- setNames(newdf$stationCount, newdf$Zip)
+
+
+# Add information to geojson data by using the named vector above
+chi_zips$stationCount <- stationCount
+
+
+# Create the HTML content to serve as the popup label
+labels <- sprintf(
+  "<strong>Postal Code #%s</strong><br/> %g Stations in this zip code",
+  chi_zips$zip, chi_zips$stationCount
+) %>% lapply(htmltools::HTML)
+
+
+chi_zips %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~pal(stationCount),
+              color = "#444444",
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 0.5,
+              highlightOptions = highlightOptions(color = "white",
+                                                  weight = 2,
+                                                  bringToFront = TRUE),
+              label = ~labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+  addLegend(pal = pal,
+            values = ~stationCount,
+            opacity = 0.7,
+            title = NULL,
+            position = "bottomright")
+
+```
+
+
 ### Zip Codes
 
 ```{r, cache=TRUE}
 
 # https://data.cityofchicago.org/browse/select_dataset?tags=shapefiles&utf8=%E2%9C%93
-chi_zips <- geojsonio::geojson_read('/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/flex/data/Chicago_Zipcodes.geojson', what = "sp")
 
 factblues <- colorFactor(palette = "Blues", chi_zips$zip)
 
@@ -202,7 +278,7 @@ leaflet(chi_zips) %>%
 
 ```{r, cache=TRUE, eval=TRUE}
 
-content_df <- stations$stationBeanList %>%
+content_df <- stations %>%
     sample_n(100) %>% 
   mutate(
     content = paste(
@@ -230,7 +306,7 @@ leaflet(content_df) %>%
 
 ```{r, cache=TRUE, eval=TRUE}
 
-content_df2 <- stations$stationBeanList %>%
+content_df2 <- stations %>%
   sample_n(100) 
 
 labs <- lapply(seq(nrow(content_df2)), function(i) {
@@ -258,13 +334,13 @@ leaflet(content_df2) %>%
 
 ```{r, cache=TRUE}
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   addTiles() %>%
   addMarkers(
-    lat = stations$stationBeanList$latitude, 
-    lng = stations$stationBeanList$longitude,
-    popup = stations$stationBeanList$stationName,
-    label = stations$stationBeanList$id,
+    lat = stations$latitude, 
+    lng = stations$longitude,
+    popup = stations$stationName,
+    label = stations$id,
     clusterOptions = markerClusterOptions()
   )
 
@@ -275,7 +351,7 @@ leaflet(stations$stationBeanList) %>%
 
 ```{r, cache=TRUE}
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   addTiles() %>%
   addCircleMarkers()
 
@@ -289,7 +365,7 @@ leaflet(stations$stationBeanList) %>%
 # Create a palette that maps factor levels to colors
 pal <- colorFactor(c("red", "blue"), domain = c(TRUE, FALSE))
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   addTiles() %>%
   addCircleMarkers(
     radius = ~ifelse(is_renting == TRUE, 10, 5),
@@ -323,7 +399,7 @@ greenLeafIcon <- makeIcon(
   #shadowAnchorX = 4, shadowAnchorY = 62
 )
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   addTiles() %>%
   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 
@@ -336,7 +412,7 @@ leaflet(stations$stationBeanList) %>%
 
 # https://leaflet-extras.github.io/leaflet-providers/preview/index.html
 
-leaflet(stations$stationBeanList) %>%
+leaflet(stations) %>%
   # Base groups
   addTiles(group = "Default") %>%
   addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
@@ -352,17 +428,17 @@ leaflet(stations$stationBeanList) %>%
   )
 
 # # Toner
-# leaflet(stations$stationBeanList) %>%
+# leaflet(stations) %>%
 #   addProviderTiles(providers$Stamen.Toner) %>%
 #   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 # 
 # # Watercolor
-# leaflet(stations$stationBeanList) %>%
+# leaflet(stations) %>%
 #   addProviderTiles(providers$Stamen.Watercolor) %>%
 #   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 # 
 # # NASA
-# leaflet(stations$stationBeanList) %>%
+# leaflet(stations) %>%
 #   addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012) %>%
 #   addMarkers(~longitude, ~latitude, icon = greenLeafIcon)
 
@@ -638,20 +714,55 @@ p
 
 ```{r chord_prep, cache=TRUE, eval=FALSE}
 
-
-station_wards <- divvy_trips %>% 
-  select(`FROM STATION ID`, Wards) %>% 
-  arrange(as.numeric(`FROM STATION ID`)) %>% 
-  unique()
-
-station_wards <- setNames(station_wards$`FROM STATION ID`, as.character(station_wards$Wards))
+## What we need to do here is create a spatial points data frame from the station coordinates and give it the same projection as we find in the neighborhoods shapefile.
+## Then, we will 
 
 
 
-# trips_mat <- divvy_trips %>% 
-#   select(`FROM STATION ID`, `TO STATION ID`) %>% 
-#   arrange(as.numeric(`FROM STATION ID`), as.numeric(`TO STATION ID`)) %>% 
-#   table()
+#neighborhoods
+
+
+#neighborhoods@proj4string
+
+
+
+station_coords <- stations %>% 
+  select(id, stationName, latitude, longitude)
+
+spdf <- SpatialPointsDataFrame(coords = station_coords %>% select(longitude, latitude), data = station_coords, proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+
+
+
+
+result <- sp::over(neighborhoods, spdf, returnList = TRUE)
+# names(result)
+# result
+
+
+
+
+#length(names(result)) # 98
+
+neighborhood_rows <- vector(mode = "list", length = length(names(result)))
+neighborhood_rows
+
+
+for(i in names(result)){
+  idf <- result[[i]]
+  idf$neighborhood <- i
+  
+  numeric_index <- as.numeric(i)
+  neighborhood_rows[[numeric_index+1]] <- idf
+}
+
+neighborhood_rows_all <- do.call(rbind,neighborhood_rows)
+
+neighborhood_rows_all
+
+
+
+
+#rgeos::gWithin(neighborhoods, spdf, byid = TRUE)
 
 ```
 
@@ -660,25 +771,30 @@ station_wards <- setNames(station_wards$`FROM STATION ID`, as.character(station_
 
 ```{r chord, cache=TRUE, eval=TRUE, warning=FALSE}
 
-# set.seed(999)
-# mat = matrix(sample(18, 18), 3, 6) 
-# rownames(mat) = paste0("S", 1:3)
-# colnames(mat) = paste0("E", 1:6)
-# 
-# chordDiagram(mat)
+#devtools::install_github("mattflor/chorddiag")
+require(chorddiag)
 
+# Using ward instead of station:
+station_wards <- divvy_trips %>% 
+  select(`FROM STATION ID`, Wards) %>% 
+  arrange(as.numeric(`FROM STATION ID`)) %>% 
+  unique()
 
+station_wards <- setNames(as.character(station_wards$Wards), station_wards$`FROM STATION ID`)
+
+trip_wards <- divvy_trips %>% 
+  select(`TRIP ID`, `FROM STATION ID`, Wards, `TO STATION ID`)
+
+trip_wards %<>% 
+  mutate(TO_STATION_WARD = station_wards[`FROM STATION ID`]) %>% 
+  rename("FROM_STATION_WARD" = Wards)
 
 # Define count matrix for trip data:
-trips_mat <- divvy_trips %>% 
-  select(`FROM STATION ID`, `TO STATION ID`) %>% 
-  arrange(as.numeric(`FROM STATION ID`), as.numeric(`TO STATION ID`)) %>% 
+ward_mat <- trip_wards %>% 
+  select(FROM_STATION_WARD, TO_STATION_WARD) %>% 
   table()
 
-#devtools::install_github("mattflor/chorddiag")
-library(chorddiag)
-
-chorddiag(trips_mat[0:20,0:20], type = "bipartite", showTicks = F, groupnameFontsize = 14, groupnamePadding = 10, margin = 90)
+chorddiag(ward_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
 
 ```
 
