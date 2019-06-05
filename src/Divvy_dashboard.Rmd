@@ -16,7 +16,7 @@ output:
 library(pacman)
 library(tidyverse)
 library(plotly)
-p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, circlize, chorddiag, sp)
+p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, circlize, chorddiag, sp, crayon)
 
 conflict_prefer("filter", "dplyr")
 
@@ -52,17 +52,6 @@ Column
 
 ```{r, cache=TRUE}
 
-# my_map <- leaflet(stations) %>%
-#   addTiles() %>%
-#   addMarkers(lat = stations$latitude, 
-#              lng = stations$longitude,
-#              popup = stations$stationName,
-#              label = stations$id)
-# my_map
-
-
-
-
 icons <- awesomeIcons(
   icon = 'bicycle',
   iconColor = 'white',
@@ -71,13 +60,25 @@ icons <- awesomeIcons(
   markerColor = "blue" #getColor(stations$availableBikes)
 )
 
+labs <- lapply(seq(nrow(stations)), function(i) {
+  paste0('<p><b><a>', stations[i, "stationName"], '</a></b><p></p>', 
+          #stations[i, "city"], ', IL, ', 
+          #stations[i, "postalCode"],'</p><p>', 
+          #stations[i, "latitude"], ', ', stations[i, "longitude"], '</p>'
+         "Available Bikes: ", stations[i, "availableBikes"], '</p>'
+         )
+  }
+)
+
 leaflet(stations) %>%
+  setView(-87.653449, 41.894556, 11) %>% # This line sets the default zoom
   addTiles() %>%
   addAwesomeMarkers(
     ~longitude, 
     ~latitude, 
     icon=icons, 
-    label=~as.character(stationName)
+    #label=~as.character(stationName) # This is the simpler way to do it without the HTML
+    label = lapply(labs, HTML)
   )
 
 ```
@@ -304,34 +305,6 @@ leaflet(content_df) %>%
 ```
 
 
-### Labels
-
-```{r, cache=TRUE, eval=TRUE}
-
-content_df2 <- stations %>%
-  sample_n(100) 
-
-labs <- lapply(seq(nrow(content_df2)), function(i) {
-  paste0('<p><b><a>', content_df2[i, "stationName"], '</a></b><p></p>', 
-          content_df2[i, "city"], ', IL, ', 
-          content_df2[i, "postalCode"],'</p><p>', 
-          content_df2[i, "latitude"], ', ', content_df2[i, "longitude"], '</p>'
-         )
-  }
-)
-
-leaflet(content_df2) %>%
-  setView(-87.653449, 41.894556, 11) %>% # This line sets the default zoom
-  addTiles() %>%
-  addMarkers(
-    content_df2$longitude,
-    content_df2$latitude,
-    label = lapply(labs, HTML)
-  )
-
-```
-
-
 ### Clusters
 
 ```{r, cache=TRUE}
@@ -349,33 +322,34 @@ leaflet(stations) %>%
 ```
 
 
-### Circles
-
-```{r, cache=TRUE}
-
-leaflet(stations) %>%
-  addTiles() %>%
-  addCircleMarkers()
-
-```
-
-
 ### Custom Circles
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, warning=FALSE, message=FALSE}
 
-# Create a palette that maps factor levels to colors
-pal <- colorFactor(c("red", "blue"), domain = c(TRUE, FALSE))
+# Create a palette that maps boolean values to colors
+#boolpal <- colorFactor(c("red", "blue"), domain = c(TRUE, FALSE))
+
+# Create a palette that maps integer values to colors
+#zips <- stations$postalCode %>% unique() %>% as.numeric()
+#numpal <- colorNumeric(c("red", "green", "blue"), 1:length(zips))
+
+zips <- stations$postalCode %>% unique()
+factpal <- colorFactor(topo.colors(length(zips)), zips)
+#factpal(stations$postalCode)
 
 leaflet(stations) %>%
   addTiles() %>%
   addCircleMarkers(
-    radius = ~ifelse(is_renting == TRUE, 10, 5),
-    color = ~pal(is_renting),
+    #radius = ~ifelse(is_renting == TRUE, 10, 5),
+    radius = 5,
+    color = ~factpal(stations$postalCode),
     stroke = FALSE, fillOpacity = 0.5
   ) %>% 
-  addLegend("topright", pal = pal, values = ~is_renting,
-    title = "Renting Currently Or Not",
+  addLegend(
+    "topright", 
+    pal = factpal, 
+    values = ~stations$postalCode,
+    title = "Zip Code",
     #labFormat = labelFormat(prefix = "$"),
     opacity = 1
   )
@@ -712,9 +686,13 @@ p
 ```
 
 
-### Prepare Connection Data
+### Chord diagram
 
-```{r chord_prep, cache=TRUE, eval=TRUE}
+```{r ward_chord, cache=TRUE, eval=TRUE, warning=FALSE}
+
+#devtools::install_github("mattflor/chorddiag")
+require(chorddiag)
+
 
 ## What we need to do here is create a spatial points data frame from the station coordinates and give it the same projection as we find in the neighborhoods shapefile.
 
@@ -761,10 +739,6 @@ neighborhood_list_df <- enframe(neighborhood_list) %>%
 
 #neighborhood_list[as.numeric(neighborhood_rows_all$neighborhood)]
 
-```
-
-
-```{r tester}
 
 neighborhood_df <- neighborhood_rows_all %>% 
   rename(
@@ -778,16 +752,14 @@ neighborhood_df <- neighborhood_rows_all %>%
     "Neighborhood_Name" = name,
     )
 
-```
 
 
 
-### Chord diagram
 
-```{r ward_chord, cache=TRUE, eval=TRUE, warning=FALSE}
 
-#devtools::install_github("mattflor/chorddiag")
-require(chorddiag)
+
+
+
 
 # Using ward instead of station:
 station_wards <- divvy_trips %>% 
@@ -855,7 +827,7 @@ chorddiag(neighborhood_mat[1:40,1:40], type = "bipartite", showTicks = F, groupn
 
 ### Sankey diagram
 
-```{r sankey, cache=TRUE, eval=FALSE}
+```{r sankey, cache=TRUE, eval=TRUE}
 
 URL <- paste0(
         "https://cdn.rawgit.com/christophergandrud/networkD3/",
