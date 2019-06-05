@@ -714,7 +714,7 @@ p
 
 ### Prepare Connection Data
 
-```{r chord_prep, cache=TRUE, eval=FALSE}
+```{r chord_prep, cache=TRUE, eval=TRUE}
 
 ## What we need to do here is create a spatial points data frame from the station coordinates and give it the same projection as we find in the neighborhoods shapefile.
 
@@ -842,9 +842,13 @@ neighborhood_trips <- merge(left, right2, by.x = "StationId", by.y = "to_station
 # Define count matrix for trip data:
 neighborhood_mat <- neighborhood_trips %>% 
   select(from_neighborhood_name, to_neighborhood_name) %>% 
+  rename(
+    "From Neighborhood" = from_neighborhood_name,
+    "To Neighborhood" = to_neighborhood_name
+  ) %>% 
   table()
 
-chorddiag(neighborhood_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
+chorddiag(neighborhood_mat[1:40,1:40], type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
 
 ```
 
