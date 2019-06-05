@@ -24,6 +24,8 @@ conflict_prefer("filter", "dplyr")
 
 stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")$stationBeanList
 
+#Divvy_Stations <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/DivvyStationsMap.csv")
+
 divvy_trips <- fread(here("data",'Divvy_trips_sample.csv'))
 
 Divvy_q4_trips <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Divvy_Trips_2018_Q4.csv", nrows = 1000)
@@ -724,55 +726,65 @@ p
 #neighborhoods
 #neighborhoods@proj4string
 
-
 station_coords <- stations %>% 
   select(id, stationName, latitude, longitude)
 
 spdf <- SpatialPointsDataFrame(coords = station_coords %>% select(longitude, latitude), data = station_coords, proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 
-
 result <- sp::over(neighborhoods, spdf, returnList = TRUE)
-# names(result)
-# result
-#typeof(result[[1]]) # list
 
-
-
-#length(names(result)) # 98
 
 neighborhood_rows <- vector(mode = "list", length = length(names(result)))
-#neighborhood_rows
-
-#result[[11]]
-#dim(result[[11]])[0]
-
-
 for(i in names(result)){
   idf <- result[[i]]
   try(
-    if(dim(idf)[0] > 0){
-      idf$neighborhood <- i
-      numeric_index <- as.numeric(i)
-      neighborhood_rows[[numeric_index]] <- idf
-    }
-  , silent = TRUE)
+    idf$neighborhood <- i,
+    silent = TRUE
+  )
+  neighborhood_rows[[i]] <- idf
 }
-
 neighborhood_rows_all <- do.call(rbind,neighborhood_rows)
 
-neighborhood_rows_all
 
+neighborhood_rows_all %<>% 
+  select(id, stationName, neighborhood) %>% 
+  arrange(as.numeric(neighborhood))
 
+neighborhood_list <- setNames(neighborhoods$pri_neigh, rownames(neighborhoods))
 
+neighborhood_list_df <- enframe(neighborhood_list) %>% 
+  rename(
+    "id" = name,
+    "name" = value
+    ) %>% 
+  mutate(id = id - 1) # Had to do this because the neighborhood id's start at 0, not 1
 
-#rgeos::gWithin(neighborhoods, spdf, byid = TRUE)
+#neighborhood_list[as.numeric(neighborhood_rows_all$neighborhood)]
 
 ```
 
 
+```{r tester}
+
+neighborhood_df <- neighborhood_rows_all %>% 
+  rename(
+    "StationId" = id,
+    "id" = neighborhood
+    ) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  left_join(neighborhood_list_df, by = "id") %>% 
+  rename(
+    "Neighborhood_Id" = id,
+    "Neighborhood_Name" = name,
+    )
+
+```
+
+
+
 ### Chord diagram
 
-```{r chord, cache=TRUE, eval=TRUE, warning=FALSE}
+```{r ward_chord, cache=TRUE, eval=TRUE, warning=FALSE}
 
 #devtools::install_github("mattflor/chorddiag")
 require(chorddiag)
@@ -798,6 +810,41 @@ ward_mat <- trip_wards %>%
   table()
 
 chorddiag(ward_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
+
+```
+
+
+### Chord diagram (neighborhoods)
+
+```{r neighborhood_chord, cache=TRUE, eval=TRUE, warning=FALSE}
+
+require(chorddiag)
+
+# Combine neighborhood data with divvy_trips:
+left <- neighborhood_df %>% 
+  select(StationId, Neighborhood_Name)
+
+right <- Divvy_q4_trips %>% 
+  select(trip_id, from_station_id, to_station_id)
+
+right2 <- merge(left, right, by.x = "StationId", by.y = "from_station_id") %>% 
+  rename(
+  "from_station_id" = StationId,
+  "from_neighborhood_name" =  Neighborhood_Name
+  )
+
+neighborhood_trips <- merge(left, right2, by.x = "StationId", by.y = "to_station_id") %>% 
+  rename(
+  "to_station_id" = StationId,
+  "to_neighborhood_name" =  Neighborhood_Name
+  )
+
+# Define count matrix for trip data:
+neighborhood_mat <- neighborhood_trips %>% 
+  select(from_neighborhood_name, to_neighborhood_name) %>% 
+  table()
+
+chorddiag(neighborhood_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, groupnamePadding = 10, margin = 90)
 
 ```
 
