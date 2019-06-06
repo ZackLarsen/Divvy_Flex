@@ -19,6 +19,7 @@ library(plotly)
 p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, data.table, magrittr, circlize, chorddiag, sp, crayon)
 
 conflict_prefer("filter", "dplyr")
+conflict_prefer("arrange", "dplyr")
 
 #here::here()
 
@@ -829,14 +830,46 @@ chorddiag(neighborhood_mat[1:40,1:40], type = "bipartite", showTicks = F, groupn
 
 ```{r sankey, cache=TRUE, eval=TRUE}
 
-URL <- paste0(
-        "https://cdn.rawgit.com/christophergandrud/networkD3/",
+URL <- paste0("https://cdn.rawgit.com/christophergandrud/networkD3/",
         "master/JSONdata/energy.json")
+
 Energy <- jsonlite::fromJSON(URL)
 
 sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source",
              Target = "target", Value = "value", NodeID = "name",
              units = "TWh", fontSize = 12, nodeWidth = 30)
+
+
+
+
+# Nodes is a dataframe with one column: "name"
+# It is the unique name for every station
+
+# nodes <- Divvy_q4_trips %>% 
+#   arrange(from_station_id) %>% 
+#   select(from_station_name) %>% 
+#   unique() %>% 
+#   rename("name" = from_station_name)
+# 
+# 
+# # Links is a dataframe with three columns: 
+# # "source", "target", and "value"
+# 
+# links <- Divvy_q4_trips %>% 
+#   select(trip_id, from_station_id, from_station_name, to_station_id) %>%
+#   group_by(from_station_id, to_station_id) %>% 
+#   tally() %>% 
+#   arrange(from_station_id, desc(n)) %>% 
+#   rename(
+#     "source" = from_station_id,
+#     "target" = to_station_id,
+#     "value" = n
+#   )
+# 
+# 
+# sankeyNetwork(Links = links, Nodes = nodes, Source = "source",
+#              Target = "target", Value = "value", NodeID = "name",
+#              units = "Rides", fontSize = 12, nodeWidth = 30)
 
 ```
 
@@ -845,11 +878,11 @@ sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source",
 
 ```{r simpleNetwork, cache=TRUE, eval=FALSE}
 
-simpleNetwork(divvy_trips %>% 
-                select(`FROM STATION NAME`, `TO STATION NAME`) %>% 
-                head(50),
-              opacity = 0.4
-              )
+df <- divvy_trips %>% 
+  select(`FROM STATION NAME`, `TO STATION NAME`) %>% 
+  head(50)
+
+simpleNetwork(df, opacity = 0.4)
 
 ```
 
