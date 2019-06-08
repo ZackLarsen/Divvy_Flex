@@ -685,13 +685,13 @@ leaflet(divvy_trips) %>%
 tripcounts_with_location <- fread(here("data","tripcounts_with_location.csv"))
 
 # map projection
-geo <- list(
-  scope = 'north america',
-  projection = list(type = 'azimuthal equal area'),
-  showland = TRUE,
-  landcolor = toRGB("gray95"),
-  countrycolor = toRGB("gray80")
-)
+# geo <- list(
+#   scope = 'north america',
+#   projection = list(type = 'azimuthal equal area'),
+#   showland = TRUE,
+#   landcolor = toRGB("gray95"),
+#   countrycolor = toRGB("gray80")
+# )
 
 p <- plot_mapbox() %>%
   add_markers(
@@ -707,19 +707,19 @@ p <- plot_mapbox() %>%
     data = tripcounts_with_location,
     x = ~from_longitude, xend = ~to_longitude,
     y = ~from_latitude, yend = ~to_latitude,
+    width = ~n,
     line=list(
       color="pink",
-      alpha = 0.7,
-      #size = I(1),
-      #size = ~n
-      width = ~n
+      alpha = 0.5,
+      size = I(1)
+      #width = ~n
       ),
     hoverinfo = "none"
   ) %>%
   plotly::layout(
     #title = 'Divvy trips<br>(Hover for station names)',
     title = 'Divvy trips (Hover for station names)',
-    geo = geo, 
+    #geo = geo, 
     showlegend = FALSE,
     mapbox = list(
       zoom = 11,
