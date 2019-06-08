@@ -40,6 +40,8 @@ neighborhoods <- geojsonio::geojson_read(here("data","Boundaries_Neighborhoods.g
 
 # https://cfss.uchicago.edu/notes/leaflet/
 
+Sys.setenv('MAPBOX_TOKEN' = 'pk.eyJ1IjoiemxhcnNlbiIsImEiOiJjamNpMzM5ZzIzZmdzMnFwNWd2eXJ6YzY1In0.r8LhaHRRUpdGewvOWE_jrA')
+
 ```
 
 
@@ -646,15 +648,41 @@ leaflet(divvy_trips) %>%
 ```
 
 
-### Lines
+### Paths
 
-```{r, cache=TRUE, eval=TRUE, warning=FALSE}
+```{r paths, warning=FALSE, message=FALSE}
 
-# airport locations
-air <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2011_february_us_airport_traffic.csv')
-# flights between airports
-flights <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2011_february_aa_flight_paths.csv')
-flights$id <- seq_len(nrow(flights))
+# Divvy_q4_trips_large <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/Divvy_Trips_2018_Q4.csv", nrows = 100000)
+# 
+# tripcounts <- Divvy_q4_trips_large %>% 
+#   select(trip_id, from_station_id, to_station_id) %>% 
+#   unite_("connection", c("from_station_id","to_station_id")) %>% 
+#   group_by(connection) %>% 
+#   tally() %>% 
+#   arrange(connection) %>% 
+#   separate(connection, c("from_station_id","to_station_id"), sep = "_")
+# 
+# tripcounts_with_location <- merge(tripcounts, stations %>% select(id, stationName, latitude, longitude),
+#       by.x = "from_station_id", by.y = "id") %>% 
+#   rename(
+#     "from_stationName" = stationName,
+#     "from_latitude" = latitude,
+#     "from_longitude" = longitude
+#     ) %>% 
+#   merge(stations %>% select(id, stationName, latitude, longitude),
+#       by.x = "to_station_id", by.y = "id") %>% 
+#   rename(
+#     "to_stationName" = stationName,
+#     "to_latitude" = latitude,
+#     "to_longitude" = longitude
+#     ) %>% 
+#   group_by(from_station_id) %>% filter(n == max(n)) %>%
+#   arrange(from_station_id)
+# 
+# fwrite(tripcounts_with_location, file = here("data","tripcounts_with_location.csv"))
+
+
+tripcounts_with_location <- fread(here("data","tripcounts_with_location.csv"))
 
 # map projection
 geo <- list(
@@ -665,21 +693,39 @@ geo <- list(
   countrycolor = toRGB("gray80")
 )
 
-p <- plot_geo(locationmode = 'USA-states', color = I("red")) %>%
+p <- plot_mapbox() %>%
   add_markers(
-    data = air, x = ~long, y = ~lat, text = ~airport,
-    size = ~cnt, hoverinfo = "text", alpha = 0.5
+    data = tripcounts_with_location, 
+    x = ~from_longitude, 
+    y = ~from_latitude, 
+    text = ~from_stationName,
+    size = ~n, 
+    hoverinfo = "text", 
+    alpha = 0.9
   ) %>%
   add_segments(
-    data = group_by(flights, id),
-    x = ~start_lon, xend = ~end_lon,
-    y = ~start_lat, yend = ~end_lat,
-    alpha = 0.3, size = I(1), hoverinfo = "none"
+    data = tripcounts_with_location,
+    x = ~from_longitude, xend = ~to_longitude,
+    y = ~from_latitude, yend = ~to_latitude,
+    line=list(
+      color="pink",
+      alpha = 0.7,
+      #size = I(1),
+      #size = ~n
+      width = ~n
+      ),
+    hoverinfo = "none"
   ) %>%
   plotly::layout(
-    title = 'Feb. 2011 American Airline flight paths<br>(Hover for airport names)',
+    #title = 'Divvy trips<br>(Hover for station names)',
+    title = 'Divvy trips (Hover for station names)',
     geo = geo, 
-    showlegend = FALSE
+    showlegend = FALSE,
+    mapbox = list(
+      zoom = 11,
+      center = list(lat = 41.894556, lon = -87.653449),
+      style = 'dark'
+    )
   )
 
 p
@@ -692,7 +738,7 @@ p
 ```{r ward_chord, cache=TRUE, eval=TRUE, warning=FALSE}
 
 #devtools::install_github("mattflor/chorddiag")
-require(chorddiag)
+#require(chorddiag)
 
 
 ## What we need to do here is create a spatial points data frame from the station coordinates and give it the same projection as we find in the neighborhoods shapefile.
@@ -791,7 +837,7 @@ chorddiag(ward_mat, type = "bipartite", showTicks = F, groupnameFontsize = 10, g
 
 ```{r neighborhood_chord, cache=TRUE, eval=TRUE, warning=FALSE}
 
-require(chorddiag)
+#require(chorddiag)
 
 # Combine neighborhood data with divvy_trips:
 left <- neighborhood_df %>% 
@@ -828,7 +874,7 @@ chorddiag(neighborhood_mat[1:40,1:40], type = "bipartite", showTicks = F, groupn
 
 ### Sankey diagram
 
-```{r sankey, cache=TRUE, eval=TRUE}
+```{r sankey, cache=TRUE, eval=FALSE}
 
 URL <- paste0("https://cdn.rawgit.com/christophergandrud/networkD3/",
         "master/JSONdata/energy.json")
