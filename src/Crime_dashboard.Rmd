@@ -73,7 +73,7 @@ https://rstudio.github.io/leaflet/
 
 Column {.tabset}
 -------------------------------------
-   
+ 
 ### Data
 
 ```{r, cache=TRUE}
@@ -121,6 +121,52 @@ Crime Features {.storyboard}
 =========================================
 
 
+### Treemap
+
+```{r, cache=TRUE, eval=TRUE}
+
+thm <- 
+  hc_theme(
+    colors = c("#1a6ecc", "#434348", "#90ed7d"),
+    chart = list(
+      backgroundColor = "transparent",
+      style = list(fontFamily = "Source Sans Pro")
+    ),
+    xAxis = list(
+      gridLineWidth = 1
+    )
+  )
+
+treemap_data <- crimes %>% 
+  select(`Case Number`, `Primary Type`, Description) %>% 
+  group_by(`Primary Type`, Description) %>% 
+  summarise(Count = n_distinct(`Case Number`))
+
+tm <- treemap(treemap_data, index = c("Primary Type", "Description"),
+              vSize = "Count", vColor = "Count",
+              type = "value", palette = rev(viridis(6)))
+
+highchart() %>% 
+  hc_add_series_treemap(tm, allowDrillToNode = TRUE,
+                        layoutAlgorithm = "squarified") %>% 
+  hc_add_theme(thm)
+
+```
+
+
+### Heatmap
+
+```{r, cache=TRUE, eval=TRUE}
+
+leaflet(crimes) %>%
+  addTiles() %>% 
+  addHeatmap(lng=~Longitude,
+             lat=~Latitude,
+             radius = 8)
+
+```
+
+
 ### Clusters
 
 ```{r, cache=TRUE, eval=TRUE}
@@ -133,46 +179,6 @@ leaflet(crimes_full) %>%
     lat = crimes_full$Latitude, 
     lng = crimes_full$Longitude,
     clusterOptions = markerClusterOptions()
-  )
-
-```
-
-
-### Custom Gun Icons
-
-```{r, cache=TRUE, eval=TRUE}
-
-# https://rstudio.github.io/leaflet/markers.html
-gunIcon <- makeIcon(
-  iconUrl = here("handgun.png"),
-  iconWidth = 35, iconHeight = 35,
-  iconAnchorX = 0, iconAnchorY = 10
-)
-
-leaflet(crimes %>% filter(grepl("GUN",Description)) %>% na.omit()) %>%
-  addTiles() %>%
-  addMarkers(~Longitude, ~Latitude, icon = gunIcon)
-
-```
-
-
-### Tile Layers
-
-```{r, cache=TRUE, eval=TRUE}
-
-leaflet(crimes) %>%
-  # Base groups
-  addTiles(group = "Default") %>%
-  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
-  addProviderTiles(providers$NASAGIBS.ViirsEarthAtNight2012, group = "NASA") %>%
-  addProviderTiles(providers$Stamen.Watercolor, group = "Watercolor") %>% 
-  # Overlay groups
-  addCircles(~Longitude, ~Latitude, group = "Crimes") %>%
-  # Layers control
-  addLayersControl(
-    baseGroups = c("Default", "Toner", "NASA", "Watercolor"),
-    overlayGroups = c("Crimes"),
-    options = layersControlOptions(collapsed = FALSE)
   )
 
 ```
@@ -222,52 +228,6 @@ icons <- awesomeIcons(
 leaflet(crimes) %>%
   addTiles() %>%
   addAwesomeMarkers(~Longitude, ~Latitude, icon=icons, label=~as.character(`Primary Type`))
-
-```
-
-
-### Treemap
-
-```{r, cache=TRUE, eval=TRUE}
-
-thm <- 
-  hc_theme(
-    colors = c("#1a6ecc", "#434348", "#90ed7d"),
-    chart = list(
-      backgroundColor = "transparent",
-      style = list(fontFamily = "Source Sans Pro")
-    ),
-    xAxis = list(
-      gridLineWidth = 1
-    )
-  )
-
-treemap_data <- crimes %>% 
-  select(`Case Number`, `Primary Type`, Description) %>% 
-  group_by(`Primary Type`, Description) %>% 
-  summarise(Count = n_distinct(`Case Number`))
-
-tm <- treemap(treemap_data, index = c("Primary Type", "Description"),
-              vSize = "Count", vColor = "Count",
-              type = "value", palette = rev(viridis(6)))
-
-highchart() %>% 
-  hc_add_series_treemap(tm, allowDrillToNode = TRUE,
-                        layoutAlgorithm = "squarified") %>% 
-  hc_add_theme(thm)
-
-```
-
-
-### Heatmap
-
-```{r, cache=TRUE, eval=TRUE}
-
-leaflet(crimes) %>%
-  addTiles() %>% 
-  addHeatmap(lng=~Longitude,
-             lat=~Latitude,
-             radius = 8)
 
 ```
 
