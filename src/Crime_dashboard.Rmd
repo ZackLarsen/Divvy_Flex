@@ -167,23 +167,6 @@ leaflet(crimes) %>%
 ```
 
 
-### Clusters
-
-```{r, cache=TRUE, eval=TRUE}
-
-crimes_full <- crimes %>% na.omit()
-
-leaflet(crimes_full) %>%
-  addTiles() %>%
-  addMarkers(
-    lat = crimes_full$Latitude, 
-    lng = crimes_full$Longitude,
-    clusterOptions = markerClusterOptions()
-  )
-
-```
-
-
 ### Circle Layers
 
 ```{r, cache=TRUE, eval=TRUE}
@@ -213,23 +196,6 @@ leaflet(crimes) %>%
 
 ```
 
-
-### Custom icon colors
-
-```{r, eval=FALSE}
-
-icons <- awesomeIcons(
-  icon = 'ios-close',
-  iconColor = 'black',
-  library = 'ion',
-  markerColor = getColor(crimes)
-)
-
-leaflet(crimes) %>%
-  addTiles() %>%
-  addAwesomeMarkers(~Longitude, ~Latitude, icon=icons, label=~as.character(`Primary Type`))
-
-```
 
 
 Ward Features {.storyboard}
