@@ -957,143 +957,143 @@ chorddiag(neighborhood_mat[1:40,1:40], type = "bipartite", showTicks = F, groupn
 ```
 
 
-### Sankey diagram
+<!-- ### Sankey diagram -->
 
-```{r sankey, cache=TRUE, eval=FALSE}
+<!-- ```{r sankey, cache=TRUE, eval=FALSE} -->
 
-URL <- paste0("https://cdn.rawgit.com/christophergandrud/networkD3/",
-        "master/JSONdata/energy.json")
+<!-- URL <- paste0("https://cdn.rawgit.com/christophergandrud/networkD3/", -->
+<!--         "master/JSONdata/energy.json") -->
 
-Energy <- jsonlite::fromJSON(URL)
+<!-- Energy <- jsonlite::fromJSON(URL) -->
 
-sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source",
-             Target = "target", Value = "value", NodeID = "name",
-             units = "TWh", fontSize = 12, nodeWidth = 30)
-
-
+<!-- sankeyNetwork(Links = Energy$links, Nodes = Energy$nodes, Source = "source", -->
+<!--              Target = "target", Value = "value", NodeID = "name", -->
+<!--              units = "TWh", fontSize = 12, nodeWidth = 30) -->
 
 
-# Nodes is a dataframe with one column: "name"
-# It is the unique name for every station
-
-# nodes <- Divvy_q4_trips %>% 
-#   arrange(from_station_id) %>% 
-#   select(from_station_name) %>% 
-#   unique() %>% 
-#   rename("name" = from_station_name)
-# 
-# 
-# # Links is a dataframe with three columns: 
-# # "source", "target", and "value"
-# 
-# links <- Divvy_q4_trips %>% 
-#   select(trip_id, from_station_id, from_station_name, to_station_id) %>%
-#   group_by(from_station_id, to_station_id) %>% 
-#   tally() %>% 
-#   arrange(from_station_id, desc(n)) %>% 
-#   rename(
-#     "source" = from_station_id,
-#     "target" = to_station_id,
-#     "value" = n
-#   )
-# 
-# 
-# sankeyNetwork(Links = links, Nodes = nodes, Source = "source",
-#              Target = "target", Value = "value", NodeID = "name",
-#              units = "Rides", fontSize = 12, nodeWidth = 30)
-
-```
 
 
-### Simple Network Viz
+<!-- # Nodes is a dataframe with one column: "name" -->
+<!-- # It is the unique name for every station -->
 
-```{r simpleNetwork, cache=TRUE, eval=FALSE}
+<!-- # nodes <- Divvy_q4_trips %>%  -->
+<!-- #   arrange(from_station_id) %>%  -->
+<!-- #   select(from_station_name) %>%  -->
+<!-- #   unique() %>%  -->
+<!-- #   rename("name" = from_station_name) -->
+<!-- #  -->
+<!-- #  -->
+<!-- # # Links is a dataframe with three columns:  -->
+<!-- # # "source", "target", and "value" -->
+<!-- #  -->
+<!-- # links <- Divvy_q4_trips %>%  -->
+<!-- #   select(trip_id, from_station_id, from_station_name, to_station_id) %>% -->
+<!-- #   group_by(from_station_id, to_station_id) %>%  -->
+<!-- #   tally() %>%  -->
+<!-- #   arrange(from_station_id, desc(n)) %>%  -->
+<!-- #   rename( -->
+<!-- #     "source" = from_station_id, -->
+<!-- #     "target" = to_station_id, -->
+<!-- #     "value" = n -->
+<!-- #   ) -->
+<!-- #  -->
+<!-- #  -->
+<!-- # sankeyNetwork(Links = links, Nodes = nodes, Source = "source", -->
+<!-- #              Target = "target", Value = "value", NodeID = "name", -->
+<!-- #              units = "Rides", fontSize = 12, nodeWidth = 30) -->
 
-df <- divvy_trips %>% 
-  select(`FROM STATION NAME`, `TO STATION NAME`) %>% 
-  head(50)
-
-simpleNetwork(df, opacity = 0.4)
-
-```
-
-
-### Force Network Viz
-
-```{r forceNetwork, cache=TRUE, eval=FALSE}
-
-# First, we need the frequency of trips from one station to the next
-# source, target, value
-DivvyLinks <- divvy_trips %>% 
-  head(100) %>% 
-  group_by(paste(`FROM STATION NAME`, 'to', `TO STATION NAME`)) %>% 
-  add_tally() %>% 
-  ungroup() %>% 
-  arrange(-n) %>% 
-  select(`FROM STATION NAME`, `TO STATION NAME`, n) %>% 
-  rename(source = `FROM STATION NAME`, target = `TO STATION NAME`, value = n) %>% 
-  distinct()
-
-# DivvyLinks %>% 
-#   kable() %>% 
-#   kable_styling()
-
-# Secondly, we need the number of trips taken from a given departure station
-# name, group, size
-DivvyNodes <- divvy_trips %>% 
-  head(100) %>% 
-  group_by(`FROM STATION NAME`) %>% 
-  add_tally() %>% 
-  ungroup() %>% 
-  arrange(-n) %>% 
-  rename(COUNT = n) %>% 
-  select(`FROM STATION NAME`, Wards, COUNT) %>% 
-  rename(name = `FROM STATION NAME`, group = Wards, size = COUNT) %>% 
-  distinct() 
-
-# DivvyNodes %>% 
-#   kable() %>% 
-#   kable_styling()
-
-#forceNetwork(Links = DivvyLinks, Nodes = DivvyNodes, Source = "source", Target = "target", Value = "value", NodeID = "name", Group = "group", opacity = 0.4)
-
-```
+<!-- ``` -->
 
 
-### Force Network Viz Example
+<!-- ### Simple Network Viz -->
 
-```{r, cache=TRUE, eval=FALSE}
-data(MisLinks, MisNodes)
+<!-- ```{r simpleNetwork, cache=TRUE, eval=FALSE} -->
 
-#MisLinks # source, target, value
+<!-- df <- divvy_trips %>%  -->
+<!--   select(`FROM STATION NAME`, `TO STATION NAME`) %>%  -->
+<!--   head(50) -->
 
-#MisNodes # name, group, size
+<!-- simpleNetwork(df, opacity = 0.4) -->
 
-
-# http://curleylab.psych.columbia.edu/netviz/netviz2.html#/
-
-# with a simple click action - make the circles bigger when clicked
-MyClickScript <- 'd3.select(this)
-.select("circle")
-.transition()
-.duration(750)
-.attr("r", 40)'
+<!-- ``` -->
 
 
-browsable(
-  tagList(
-    forceNetwork(Links = MisLinks, Nodes = MisNodes, Source = "source",
-             Target = "target", Value = "value", NodeID = "name",
-             #Nodesize = 'betweenness',
-             Group = "group", opacity = 0.4, 
-             charge = -50, # node repulsion
-             linkDistance = 20,
-             zoom = T,
-             clickAction = MyClickScript),
-    tags$script(
-      'document.body.style.backgroundColor = "#000000"'      
-    )
-  )
-)
-```
+<!-- ### Force Network Viz -->
+
+<!-- ```{r forceNetwork, cache=TRUE, eval=FALSE} -->
+
+<!-- # First, we need the frequency of trips from one station to the next -->
+<!-- # source, target, value -->
+<!-- DivvyLinks <- divvy_trips %>%  -->
+<!--   head(100) %>%  -->
+<!--   group_by(paste(`FROM STATION NAME`, 'to', `TO STATION NAME`)) %>%  -->
+<!--   add_tally() %>%  -->
+<!--   ungroup() %>%  -->
+<!--   arrange(-n) %>%  -->
+<!--   select(`FROM STATION NAME`, `TO STATION NAME`, n) %>%  -->
+<!--   rename(source = `FROM STATION NAME`, target = `TO STATION NAME`, value = n) %>%  -->
+<!--   distinct() -->
+
+<!-- # DivvyLinks %>%  -->
+<!-- #   kable() %>%  -->
+<!-- #   kable_styling() -->
+
+<!-- # Secondly, we need the number of trips taken from a given departure station -->
+<!-- # name, group, size -->
+<!-- DivvyNodes <- divvy_trips %>%  -->
+<!--   head(100) %>%  -->
+<!--   group_by(`FROM STATION NAME`) %>%  -->
+<!--   add_tally() %>%  -->
+<!--   ungroup() %>%  -->
+<!--   arrange(-n) %>%  -->
+<!--   rename(COUNT = n) %>%  -->
+<!--   select(`FROM STATION NAME`, Wards, COUNT) %>%  -->
+<!--   rename(name = `FROM STATION NAME`, group = Wards, size = COUNT) %>%  -->
+<!--   distinct()  -->
+
+<!-- # DivvyNodes %>%  -->
+<!-- #   kable() %>%  -->
+<!-- #   kable_styling() -->
+
+<!-- #forceNetwork(Links = DivvyLinks, Nodes = DivvyNodes, Source = "source", Target = "target", Value = "value", NodeID = "name", Group = "group", opacity = 0.4) -->
+
+<!-- ``` -->
+
+
+<!-- ### Force Network Viz Example -->
+
+<!-- ```{r, cache=TRUE, eval=FALSE} -->
+<!-- data(MisLinks, MisNodes) -->
+
+<!-- #MisLinks # source, target, value -->
+
+<!-- #MisNodes # name, group, size -->
+
+
+<!-- # http://curleylab.psych.columbia.edu/netviz/netviz2.html#/ -->
+
+<!-- # with a simple click action - make the circles bigger when clicked -->
+<!-- MyClickScript <- 'd3.select(this) -->
+<!-- .select("circle") -->
+<!-- .transition() -->
+<!-- .duration(750) -->
+<!-- .attr("r", 40)' -->
+
+
+<!-- browsable( -->
+<!--   tagList( -->
+<!--     forceNetwork(Links = MisLinks, Nodes = MisNodes, Source = "source", -->
+<!--              Target = "target", Value = "value", NodeID = "name", -->
+<!--              #Nodesize = 'betweenness', -->
+<!--              Group = "group", opacity = 0.4,  -->
+<!--              charge = -50, # node repulsion -->
+<!--              linkDistance = 20, -->
+<!--              zoom = T, -->
+<!--              clickAction = MyClickScript), -->
+<!--     tags$script( -->
+<!--       'document.body.style.backgroundColor = "#000000"'       -->
+<!--     ) -->
+<!--   ) -->
+<!-- ) -->
+<!-- ``` -->
 
