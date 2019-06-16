@@ -15,7 +15,10 @@ output:
 ```{r setup, include=FALSE}
 library(pacman)
 library(tidyverse)
-p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite, ggmap)
+library(shiny)
+
+p_load(flexdashboard, leaflet, leaflet.extras, ggvis, here, conflicted, data.table, jsonlite, kableExtra, glue, geosphere, DT, networkD3, htmltools, geojsonio, magrittr, treemap, highcharter, viridisLite, ggmap)
+
 conflict_prefer("filter", "dplyr")
 
 here::here() # "/Users/zacklarsen/Zack_Master/Projects/Dataviz/R/Divvy_Flex"
@@ -252,7 +255,7 @@ leaflet(ward_boundaries) %>%
 ```
 
 
-### Crime Totals By Ward, Layered By Primary Type
+### Layer Selection By Crime Type
 
 ```{r, cache=TRUE, eval=FALSE}
 
@@ -261,23 +264,16 @@ ward_totals_by_type <- crimes %>%
   group_by(Ward, `Primary Type`) %>% 
   summarise(n()) %<>% 
   rename(count = `n()`) %>% 
-  dplyr::spread(key = `Primary Type`,value = count)
+  tidyr::spread(key = `Primary Type`,value = count)
 
 ward_totals_by_type[is.na(ward_totals_by_type)] <- 0
 
 battery_totals <- setNames(ward_totals_by_type$BATTERY, as.character(ward_totals_by_type$Ward))
 robbery_totals <- setNames(ward_totals_by_type$ROBBERY, as.character(ward_totals_by_type$Ward))
-homicide_totals <- setNames(ward_totals_by_type$HOMICIDE, as.character(ward_totals_by_type$Ward))
-assault_totals <- setNames(ward_totals_by_type$ASSAULT, as.character(ward_totals_by_type$Ward))
-prostitution_totals <- setNames(ward_totals_by_type$PROSTITUTION, as.character(ward_totals_by_type$Ward))
-gta_totals <- setNames(ward_totals_by_type$`MOTOR VEHICLE THEFT`, as.character(ward_totals_by_type$Ward))
+
 
 ward_boundaries$battery_total <- battery_totals
 ward_boundaries$robbery_total <- robbery_totals
-ward_boundaries$homicide_total <- homicide_totals
-ward_boundaries$assault_total <- assault_totals
-ward_boundaries$prostitution_total <- prostitution_totals
-ward_boundaries$gta_total <- gta_totals
 
 get_palette <- function(category){
   colorQuantile("Reds", ward_boundaries$category, n = 10)
@@ -285,7 +281,7 @@ get_palette <- function(category){
 
 leaflet(ward_boundaries) %>%
   addTiles() %>%
-  addPolygons(fillColor = ~get_palette(battery_total),
+  addPolygons(fillColor = ~get_palette(battery_totals),
               weight = 2,
               opacity = 1,
               color = "white",
@@ -298,7 +294,7 @@ leaflet(ward_boundaries) %>%
                 dashArray = "",
                 fillOpacity = 0.7,
                 bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
+  addPolygons(fillColor = ~get_palette(robbery_totals),
               weight = 2,
               opacity = 1,
               color = "white",
@@ -311,62 +307,130 @@ leaflet(ward_boundaries) %>%
                 dashArray = "",
                 fillOpacity = 0.7,
                 bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "HOMICIDE",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "ASSAULT",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "PROSTITUTION",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
-  addPolygons(fillColor = ~get_palette(crime_total),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.9,
-              group = "GTA",
-              highlight = highlightOptions(
-                weight = 5,
-                color = "#666",
-                dashArray = "",
-                fillOpacity = 0.7,
-                bringToFront = TRUE)) %>% 
 
   addLayersControl(
-    overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"),
+    overlayGroups = c("BATTERY","ROBBERY"),
     options = layersControlOptions(collapsed = FALSE)
   )
 
 ```
+
+
+<!-- ### Crime Totals By Ward, Layered By Primary Type -->
+
+<!-- ```{r, cache=TRUE, eval=FALSE} -->
+
+<!-- ward_totals_by_type <- crimes %>%  -->
+<!--   select(Ward, `Primary Type`) %>%  -->
+<!--   group_by(Ward, `Primary Type`) %>%  -->
+<!--   summarise(n()) %<>%  -->
+<!--   rename(count = `n()`) %>%  -->
+<!--   tidyr::spread(key = `Primary Type`,value = count) -->
+
+<!-- ward_totals_by_type[is.na(ward_totals_by_type)] <- 0 -->
+
+<!-- battery_totals <- setNames(ward_totals_by_type$BATTERY, as.character(ward_totals_by_type$Ward)) -->
+<!-- robbery_totals <- setNames(ward_totals_by_type$ROBBERY, as.character(ward_totals_by_type$Ward)) -->
+<!-- homicide_totals <- setNames(ward_totals_by_type$HOMICIDE, as.character(ward_totals_by_type$Ward)) -->
+<!-- assault_totals <- setNames(ward_totals_by_type$ASSAULT, as.character(ward_totals_by_type$Ward)) -->
+<!-- prostitution_totals <- setNames(ward_totals_by_type$PROSTITUTION, as.character(ward_totals_by_type$Ward)) -->
+<!-- gta_totals <- setNames(ward_totals_by_type$`MOTOR VEHICLE THEFT`, as.character(ward_totals_by_type$Ward)) -->
+
+<!-- ward_boundaries$battery_total <- battery_totals -->
+<!-- ward_boundaries$robbery_total <- robbery_totals -->
+<!-- ward_boundaries$homicide_total <- homicide_totals -->
+<!-- ward_boundaries$assault_total <- assault_totals -->
+<!-- ward_boundaries$prostitution_total <- prostitution_totals -->
+<!-- ward_boundaries$gta_total <- gta_totals -->
+
+<!-- get_palette <- function(category){ -->
+<!--   colorQuantile("Reds", ward_boundaries$category, n = 10) -->
+<!-- } -->
+
+<!-- leaflet(ward_boundaries) %>% -->
+<!--   addTiles() %>% -->
+<!--   addPolygons(fillColor = ~get_palette(battery_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "BATTERY", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+<!--   addPolygons(fillColor = ~get_palette(crime_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "ROBBERY", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+<!--   addPolygons(fillColor = ~get_palette(crime_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "HOMICIDE", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+<!--   addPolygons(fillColor = ~get_palette(crime_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "ASSAULT", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+<!--   addPolygons(fillColor = ~get_palette(crime_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "PROSTITUTION", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+<!--   addPolygons(fillColor = ~get_palette(crime_total), -->
+<!--               weight = 2, -->
+<!--               opacity = 1, -->
+<!--               color = "white", -->
+<!--               dashArray = "3", -->
+<!--               fillOpacity = 0.9, -->
+<!--               group = "GTA", -->
+<!--               highlight = highlightOptions( -->
+<!--                 weight = 5, -->
+<!--                 color = "#666", -->
+<!--                 dashArray = "", -->
+<!--                 fillOpacity = 0.7, -->
+<!--                 bringToFront = TRUE)) %>%  -->
+
+<!--   addLayersControl( -->
+<!--     overlayGroups = c("BATTERY","ROBBERY","HOMICIDE","ASSAULT","PROSTITUTION","GTA"), -->
+<!--     options = layersControlOptions(collapsed = FALSE) -->
+<!--   ) -->
+
+<!-- ``` -->
