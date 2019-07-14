@@ -259,6 +259,8 @@ leaflet(ward_boundaries) %>%
 
 ```{r, cache=TRUE, eval=FALSE}
 
+# https://rstudio.github.io/leaflet/showhide.html
+
 ward_totals_by_type <- crimes %>% 
   select(Ward, `Primary Type`) %>% 
   group_by(Ward, `Primary Type`) %>% 
