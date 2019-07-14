@@ -20,10 +20,24 @@ p_load(flexdashboard, leaflet, leaflet.extras, dplyr, ggvis, here, conflicted, d
 
 conflict_prefer("filter", "dplyr")
 conflict_prefer("arrange", "dplyr")
+conflict_prefer("here", "here")
 
 #here::here()
 
-stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")$stationBeanList
+#stations <- fromJSON("https://feeds.divvybikes.com/stations/stations.json")$stationBeanList
+
+# Updates to Divvy syste, data JSON feed:
+station_information_url <- "https://gbfs.divvybikes.com/gbfs/en/station_information.json"
+#system_information_url <-  "https://gbfs.divvybikes.com/gbfs/en/system_information.json"
+#system_regions_url <- "https://gbfs.divvybikes.com/gbfs/en/system_regions.json"
+#system_alerts_url <- "https://gbfs.divvybikes.com/gbfs/en/system_alerts.json"
+station_status_url <- "https://gbfs.divvybikes.com/gbfs/en/station_status.json"
+
+stations <- fromJSON(station_information_url)$data$stations
+status <- fromJSON(station_status_url)$data$stations
+
+
+
 
 #Divvy_Stations <- fread("/Users/zacklarsen/Zack_Master/Datasets/Chicago/DivvyStationsMap.csv")
 
